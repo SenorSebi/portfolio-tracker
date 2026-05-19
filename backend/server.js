@@ -1,10 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const db = require('./database');
 const { getPrices, getEurUsdRate, clearCache } = require('./priceService');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -261,6 +262,13 @@ app.get('/api/sectors', (req, res) => {
   }
 });
 
+// Serve frontend static files in production
+const frontendDist = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
+
 app.listen(PORT, () => {
-  console.log(`Portfolio Tracker API running on http://localhost:${PORT}`);
+  console.log(`Portfolio Tracker running on http://localhost:${PORT}`);
 });
