@@ -1,6 +1,17 @@
-const yahooFinance = require('yahoo-finance2').default;
+// yahoo-finance2 is ESM-only; use dynamic import from CJS
+let _yahooFinance = null;
 
-const cache = new Map(); // ticker -> { price, changePercent, timestamp }
+async function getYahooFinance() {
+  if (!_yahooFinance) {
+    const mod = await import('yahoo-finance2');
+    // mod.default is a class that needs to be instantiated
+    const YahooFinanceClass = mod.default;
+    _yahooFinance = new YahooFinanceClass();
+  }
+  return _yahooFinance;
+}
+
+const cache = new Map(); // ticker -> { ticker, priceUsd, changePercent, currency, timestamp }
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 async function getPrice(ticker) {
@@ -10,6 +21,7 @@ async function getPrice(ticker) {
     return cached;
   }
   try {
+    const yahooFinance = await getYahooFinance();
     const quote = await yahooFinance.quote(ticker);
     const data = {
       ticker,

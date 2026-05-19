@@ -170,6 +170,7 @@ export default function App() {
           <SectorView
             key={sectors[activeTab].id}
             sector={sectors[activeTab]}
+            allSectors={sectors}
             prices={prices}
             eurUsdRate={eurUsdRate}
             onRefresh={fetchPortfolio}
