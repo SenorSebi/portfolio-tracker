@@ -4,9 +4,7 @@ let _yahooFinance = null;
 async function getYahooFinance() {
   if (!_yahooFinance) {
     const mod = await import('yahoo-finance2');
-    // mod.default is a class that needs to be instantiated
-    const YahooFinanceClass = mod.default;
-    _yahooFinance = new YahooFinanceClass();
+    _yahooFinance = mod.default; // already an instance, not a class
   }
   return _yahooFinance;
 }
