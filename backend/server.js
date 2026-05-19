@@ -205,6 +205,35 @@ app.get('/api/prices/refresh', async (req, res) => {
   }
 });
 
+// ─── GET /api/search?q= ──────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  const q = req.query.q?.trim();
+  if (!q || q.length < 1) return res.json([]);
+  try {
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&listsCount=0`;
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
+      timeout: 8000,
+    });
+    const quotes = response.data?.quotes || [];
+    const results = quotes
+      .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF')
+      .map(q => ({
+        ticker: q.symbol,
+        name: q.longname || q.shortname || q.symbol,
+        exchange: q.exchDisp || q.exchange || '',
+        type: q.quoteType,
+      }));
+    res.json(results);
+  } catch (err) {
+    console.error('Search error:', err.message);
+    res.json([]);
+  }
+});
+
 // ─── GET /api/sectors ────────────────────────────────────────────────────────
 app.get('/api/sectors', (req, res) => {
   try {

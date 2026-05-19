@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { Sector, PositionFormData, DcaZone } from '../types'
+
+interface SearchResult {
+  ticker: string
+  name: string
+  exchange: string
+  type: string
+}
 
 interface AddPositionModalProps {
   sectors: Sector[]
@@ -37,11 +44,57 @@ export default function AddPositionModal({
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Ticker search state
+  const [searchQuery, setSearchQuery] = useState(initialData?.ticker || '')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
-    if (initialData) {
-      setForm(initialData)
+    if (initialData) setForm(initialData)
+  }, [])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.length < 1) { setSearchResults([]); setSearchOpen(false); return }
+    setSearching(true)
+    try {
+      const res = await axios.get<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}`)
+      setSearchResults(res.data)
+      setSearchOpen(res.data.length > 0)
+    } catch {
+      setSearchResults([])
+    } finally {
+      setSearching(false)
     }
   }, [])
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase()
+    setSearchQuery(val)
+    setForm(f => ({ ...f, ticker: val }))
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => doSearch(val), 300)
+  }
+
+  const selectResult = (result: SearchResult) => {
+    setForm(f => ({ ...f, ticker: result.ticker, company_name: result.name }))
+    setSearchQuery(result.ticker)
+    setSearchOpen(false)
+    setSearchResults([])
+  }
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -55,7 +108,6 @@ export default function AddPositionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-
     setSubmitting(true)
     try {
       const payload = {
@@ -65,23 +117,16 @@ export default function AddPositionModal({
         avg_cost_eur: Number(form.avg_cost_eur) || 0,
         target_size_eur: Number(form.target_size_eur) || 0,
         stop_loss_eur: form.stop_loss_eur ? Number(form.stop_loss_eur) : null,
-        dca_zones: form.dca_zones.map(z => ({
-          price_eur: Number(z.price_eur),
-          label: z.label,
-        })),
+        dca_zones: form.dca_zones.map(z => ({ price_eur: Number(z.price_eur), label: z.label })),
       }
-
       if (editId) {
         await axios.put(`/api/positions/${editId}`, payload)
       } else {
         await axios.post('/api/positions', payload)
       }
-
       onSave()
     } catch (err: unknown) {
-      console.error('Save position failed:', err)
-      const message =
-        err instanceof Error ? err.message : 'Fehler beim Speichern'
+      const message = err instanceof Error ? err.message : 'Fehler beim Speichern'
       setErrors({ submit: message })
     } finally {
       setSubmitting(false)
@@ -90,17 +135,11 @@ export default function AddPositionModal({
 
   const addDcaZone = () => {
     if (form.dca_zones.length >= 6) return
-    setForm(f => ({
-      ...f,
-      dca_zones: [...f.dca_zones, { price_eur: 0, label: `Zone ${f.dca_zones.length + 1}` }],
-    }))
+    setForm(f => ({ ...f, dca_zones: [...f.dca_zones, { price_eur: 0, label: `Zone ${f.dca_zones.length + 1}` }] }))
   }
 
   const removeDcaZone = (index: number) => {
-    setForm(f => ({
-      ...f,
-      dca_zones: f.dca_zones.filter((_, i) => i !== index),
-    }))
+    setForm(f => ({ ...f, dca_zones: f.dca_zones.filter((_, i) => i !== index) }))
   }
 
   const updateDcaZone = (index: number, field: keyof DcaZone, value: string | number) => {
@@ -118,7 +157,6 @@ export default function AddPositionModal({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10 rounded-t-2xl">
           <h2 className="text-xl font-bold text-gray-900">
             {editId ? 'Position bearbeiten' : 'Neue Position hinzufügen'}
@@ -133,7 +171,6 @@ export default function AddPositionModal({
           </button>
         </div>
 
-        {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {errors.submit && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">
@@ -141,38 +178,70 @@ export default function AddPositionModal({
             </div>
           )}
 
-          {/* Ticker & Company */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Ticker <span className="text-danger">*</span>
-              </label>
+          {/* Ticker search with autocomplete */}
+          <div ref={searchRef} className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Ticker / Aktie suchen <span className="text-danger">*</span>
+            </label>
+            <div className="relative">
               <input
                 type="text"
-                value={form.ticker}
-                onChange={e => setForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-                placeholder="z.B. AAPL"
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
+                value={searchQuery}
+                onChange={handleSearchInput}
+                onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                placeholder="z.B. AAPL oder Apple..."
+                autoComplete="off"
+                className={`w-full border rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
                   errors.ticker ? 'border-danger' : 'border-gray-300'
                 }`}
               />
-              {errors.ticker && <p className="text-xs text-danger mt-1">{errors.ticker}</p>}
+              {searching && (
+                <div className="absolute right-2.5 top-2.5">
+                  <svg className="w-4 h-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Unternehmensname <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.company_name}
-                onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                placeholder="z.B. Apple Inc."
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
-                  errors.company_name ? 'border-danger' : 'border-gray-300'
-                }`}
-              />
-              {errors.company_name && <p className="text-xs text-danger mt-1">{errors.company_name}</p>}
-            </div>
+            {errors.ticker && <p className="text-xs text-danger mt-1">{errors.ticker}</p>}
+
+            {/* Dropdown */}
+            {searchOpen && searchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.ticker}
+                    type="button"
+                    onClick={() => selectResult(result)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold text-gray-900 text-sm w-20 shrink-0">{result.ticker}</span>
+                      <span className="text-sm text-gray-600 truncate">{result.name}</span>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0 ml-2">{result.exchange}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Company Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Unternehmensname <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.company_name}
+              onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+              placeholder="Wird automatisch ausgefüllt"
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent ${
+                errors.company_name ? 'border-danger' : 'border-gray-300'
+              }`}
+            />
+            {errors.company_name && <p className="text-xs text-danger mt-1">{errors.company_name}</p>}
           </div>
 
           {/* Sector & Position Type */}
@@ -213,9 +282,7 @@ export default function AddPositionModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Anzahl Stück</label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="number" min="0" step="any"
                 value={form.shares || ''}
                 onChange={e => setForm(f => ({ ...f, shares: parseFloat(e.target.value) || 0 }))}
                 placeholder="0"
@@ -223,11 +290,9 @@ export default function AddPositionModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Durchschnittlicher Einstand (€)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Ø Einstand (€)</label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="number" min="0" step="any"
                 value={form.avg_cost_eur || ''}
                 onChange={e => setForm(f => ({ ...f, avg_cost_eur: parseFloat(e.target.value) || 0 }))}
                 placeholder="0,00"
@@ -241,9 +306,7 @@ export default function AddPositionModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Zielgröße (€)</label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="number" min="0" step="any"
                 value={form.target_size_eur || ''}
                 onChange={e => setForm(f => ({ ...f, target_size_eur: parseFloat(e.target.value) || 0 }))}
                 placeholder="5000"
@@ -253,9 +316,7 @@ export default function AddPositionModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Stop-Loss (€, optional)</label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="number" min="0" step="any"
                 value={form.stop_loss_eur ?? ''}
                 onChange={e => setForm(f => ({ ...f, stop_loss_eur: e.target.value ? parseFloat(e.target.value) : null }))}
                 placeholder="Optional"
@@ -301,9 +362,7 @@ export default function AddPositionModal({
                   <div className="flex items-center gap-1">
                     <span className="text-sm text-gray-500">€</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="any"
+                      type="number" min="0" step="any"
                       value={zone.price_eur || ''}
                       onChange={e => updateDcaZone(i, 'price_eur', parseFloat(e.target.value) || 0)}
                       placeholder="0,00"
