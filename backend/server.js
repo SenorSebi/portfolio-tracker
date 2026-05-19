@@ -1,9 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const db = require('./database');
-const { getPrices, getEurUsdRate, clearCache } = require('./priceService');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import db from './database.js';
+import { getPrices, clearCache } from './priceService.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -23,7 +25,6 @@ app.get('/api/portfolio', async (req, res) => {
       sector.positions = positions;
     }
 
-    // Collect unique tickers
     const tickers = new Set(['EURUSD=X']);
     for (const sector of sectors) {
       for (const position of sector.positions) {
@@ -32,7 +33,7 @@ app.get('/api/portfolio', async (req, res) => {
     }
 
     const prices = await getPrices(Array.from(tickers));
-    const eurUsdRate = prices['EURUSD=X'] ? prices['EURUSD=X'].priceUsd || 1.08 : 1.08;
+    const eurUsdRate = prices['EURUSD=X']?.priceUsd || 1.08;
 
     res.json({ eurUsdRate, sectors, prices });
   } catch (err) {
@@ -60,11 +61,7 @@ app.get('/api/positions/:id', (req, res) => {
 // ─── POST /api/positions ─────────────────────────────────────────────────────
 app.post('/api/positions', (req, res) => {
   try {
-    const {
-      sector_id, ticker, company_name, position_type,
-      shares, avg_cost_eur, target_size_eur, stop_loss_eur,
-      notes, dca_zones
-    } = req.body;
+    const { sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes, dca_zones } = req.body;
 
     if (!ticker || !company_name || !sector_id) {
       return res.status(400).json({ error: 'ticker, company_name, and sector_id are required' });
@@ -73,17 +70,7 @@ app.post('/api/positions', (req, res) => {
     const result = db.prepare(
       `INSERT INTO positions (sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      sector_id,
-      ticker.toUpperCase(),
-      company_name,
-      position_type || 'Core',
-      shares || 0,
-      avg_cost_eur || 0,
-      target_size_eur || 0,
-      stop_loss_eur || null,
-      notes || ''
-    );
+    ).run(sector_id, ticker.toUpperCase(), company_name, position_type || 'Core', shares || 0, avg_cost_eur || 0, target_size_eur || 0, stop_loss_eur || null, notes || '');
 
     const positionId = result.lastInsertRowid;
 
@@ -107,33 +94,16 @@ app.post('/api/positions', (req, res) => {
 // ─── PUT /api/positions/:id ──────────────────────────────────────────────────
 app.put('/api/positions/:id', (req, res) => {
   try {
-    const {
-      sector_id, ticker, company_name, position_type,
-      shares, avg_cost_eur, target_size_eur, stop_loss_eur,
-      notes, dca_zones
-    } = req.body;
+    const { sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes, dca_zones } = req.body;
 
     const existing = db.prepare('SELECT id FROM positions WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Position not found' });
 
     db.prepare(
       `UPDATE positions SET sector_id=?, ticker=?, company_name=?, position_type=?,
-       shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=?
-       WHERE id=?`
-    ).run(
-      sector_id,
-      ticker ? ticker.toUpperCase() : ticker,
-      company_name,
-      position_type || 'Core',
-      shares || 0,
-      avg_cost_eur || 0,
-      target_size_eur || 0,
-      stop_loss_eur || null,
-      notes || '',
-      req.params.id
-    );
+       shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+    ).run(sector_id, ticker ? ticker.toUpperCase() : ticker, company_name, position_type || 'Core', shares || 0, avg_cost_eur || 0, target_size_eur || 0, stop_loss_eur || null, notes || '', req.params.id);
 
-    // Replace DCA zones
     db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(req.params.id);
     if (Array.isArray(dca_zones) && dca_zones.length > 0) {
       const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
@@ -183,33 +153,24 @@ app.post('/api/trades', (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(position_id, trade_date, trade_type, shares, price_eur, broker_fee_eur || 0, notes || '');
 
-    // Update position shares and average cost
-    const allTrades = db.prepare(
-      "SELECT * FROM trades WHERE position_id = ? ORDER BY trade_date ASC"
-    ).all(position_id);
+    const allTrades = db.prepare('SELECT * FROM trades WHERE position_id = ? ORDER BY trade_date ASC').all(position_id);
 
     let totalShares = 0;
     let totalCost = 0;
-
     for (const trade of allTrades) {
       if (trade.trade_type === 'Buy') {
         totalCost += trade.shares * trade.price_eur + (trade.broker_fee_eur || 0);
         totalShares += trade.shares;
       } else if (trade.trade_type === 'Sell') {
         if (totalShares > 0) {
-          const avgCost = totalCost / totalShares;
-          totalCost -= trade.shares * avgCost;
+          totalCost -= trade.shares * (totalCost / totalShares);
         }
         totalShares -= trade.shares;
       }
     }
-
     if (totalShares < 0) totalShares = 0;
     const newAvgCost = totalShares > 0 ? totalCost / totalShares : 0;
-
-    db.prepare('UPDATE positions SET shares = ?, avg_cost_eur = ? WHERE id = ?').run(
-      totalShares, newAvgCost, position_id
-    );
+    db.prepare('UPDATE positions SET shares = ?, avg_cost_eur = ? WHERE id = ?').run(totalShares, newAvgCost, position_id);
 
     const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(trade);
@@ -222,9 +183,7 @@ app.post('/api/trades', (req, res) => {
 // ─── GET /api/trades/:positionId ─────────────────────────────────────────────
 app.get('/api/trades/:positionId', (req, res) => {
   try {
-    const trades = db.prepare(
-      'SELECT * FROM trades WHERE position_id = ? ORDER BY trade_date DESC, created_at DESC'
-    ).all(req.params.positionId);
+    const trades = db.prepare('SELECT * FROM trades WHERE position_id = ? ORDER BY trade_date DESC, created_at DESC').all(req.params.positionId);
     res.json(trades);
   } catch (err) {
     console.error('GET /api/trades/:positionId error:', err);
@@ -236,14 +195,9 @@ app.get('/api/trades/:positionId', (req, res) => {
 app.get('/api/prices/refresh', async (req, res) => {
   try {
     clearCache();
-
     const positions = db.prepare('SELECT ticker FROM positions').all();
     const tickers = ['EURUSD=X', ...positions.map(p => p.ticker)];
-    const uniqueTickers = [...new Set(tickers)];
-
-    const { getPrices } = require('./priceService');
-    const prices = await getPrices(uniqueTickers);
-
+    const prices = await getPrices([...new Set(tickers)]);
     res.json({ success: true, prices });
   } catch (err) {
     console.error('GET /api/prices/refresh error:', err);
@@ -262,7 +216,7 @@ app.get('/api/sectors', (req, res) => {
   }
 });
 
-// Serve frontend static files in production
+// Serve frontend in production
 const frontendDist = path.join(__dirname, '../frontend/dist');
 app.use(express.static(frontendDist));
 app.get('*', (req, res) => {

@@ -1,13 +1,13 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+import Database from 'better-sqlite3';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const db = new Database(path.join(__dirname, 'portfolio.db'));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const db = new Database(join(__dirname, 'portfolio.db'));
 
-// Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// Create tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS sectors (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +50,6 @@ db.exec(`
   );
 `);
 
-// Seed data if sectors table is empty
 const sectorCount = db.prepare('SELECT COUNT(*) as cnt FROM sectors').get();
 if (sectorCount.cnt === 0) {
   const insertSector = db.prepare(
@@ -65,13 +64,11 @@ if (sectorCount.cnt === 0) {
   );
 
   const seedAll = db.transaction(() => {
-    // Sectors
     const s1 = insertSector.run('AI Infrastructure', '', 1);
     const s2 = insertSector.run('Industrial / Energy', '', 2);
     const s3 = insertSector.run('Biotech', '', 3);
-    const s4 = insertSector.run('Freies Segment', '', 4);
+    insertSector.run('Freies Segment', '', 4);
 
-    // Sector 1 - AI Infrastructure
     const etn = insertPosition.run(s1.lastInsertRowid, 'ETN', 'Eaton Corp', 'Core', 0, 0, 5000, null, 'Bucket A - AI power infrastructure, 15% stop-loss');
     insertDca.run(etn.lastInsertRowid, 380, 'Zone 1');
     insertDca.run(etn.lastInsertRowid, 340, 'Zone 2');
@@ -82,7 +79,6 @@ if (sectorCount.cnt === 0) {
     insertDca.run(tt.lastInsertRowid, 250, 'Zone 2');
     insertDca.run(tt.lastInsertRowid, 210, 'Zone 3');
 
-    // Sector 3 - Biotech
     const bntx = insertPosition.run(s3.lastInsertRowid, 'BNTX', 'BioNTech', 'Core', 25, 79.00, 5000, null, '');
     insertDca.run(bntx.lastInsertRowid, 71, 'Nachkauf 1');
     insertDca.run(bntx.lastInsertRowid, 62, 'Nachkauf 2');
@@ -112,4 +108,4 @@ if (sectorCount.cnt === 0) {
   console.log('Database seeded with initial data.');
 }
 
-module.exports = db;
+export default db;
