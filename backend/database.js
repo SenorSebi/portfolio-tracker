@@ -191,4 +191,65 @@ if (!alreadyRan) {
   }
 }
 
+// ─── Migration v3: Quantum Comp sector + positions ───────────────────────────
+const v3ran = db.prepare("SELECT id FROM migrations WHERE name = 'v3_quantum_sector'").get();
+if (!v3ran) {
+  const insertPosition = db.prepare(
+    `INSERT INTO positions (sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+
+  const migrateV3 = db.transaction(() => {
+    const sector = db.prepare('INSERT INTO sectors (name, description, order_index) VALUES (?, ?, ?)').run('Quantum Comp', '', 5);
+    const sid = sector.lastInsertRowid;
+
+    const add = (ticker, name, type, target, stopLoss, notes, zones) => {
+      const r = insertPosition.run(sid, ticker, name, type, 0, 0, target || 0, stopLoss || null, notes);
+      for (const z of zones) if (z.priceEur > 0) insertDca.run(r.lastInsertRowid, z.priceEur, z.label);
+    };
+
+    add('IONQ', 'IonQ Inc.', 'Watchlist', 26.00, 22.10,
+      'Stärkster Quantum-Pure-Play, SkyWater-Merger ausstehend. Einstieg erst nach ~50% Kursrückgang vertretbar. Nächster Katalysator: Merger-Closing Q2/Q3 2026.',
+      [{ label: 'Erstposition', priceEur: 26.00 }, { label: 'Nachkauf 1', priceEur: 22.50 }, { label: 'Nachkauf 2', priceEur: 17.50 }]);
+
+    add('QBTS', 'D-Wave Quantum Inc.', 'Watchlist', 11.50, 9.78,
+      'Annealing-Nische mit ersten echten Industriekunden. Bookings-Explosion positiv, aber Revenue-Base winzig. Nur im Extremszenario Einstieg vertretbar.',
+      [{ label: 'Erstposition', priceEur: 11.50 }, { label: 'Nachkauf 1', priceEur: 9.80 }, { label: 'Nachkauf 2', priceEur: 7.80 }]);
+
+    add('RGTI', 'Rigetti Computing Inc.', 'Watchlist', 4.50, 0,
+      'MEIDEN. P/S ~870x, technologisch zwischen den Stühlen, CEO-Wechsel. Kein aktiver Kauf bis fundamentale Normalisierung und strukturelle Differenzierung erkennbar.',
+      [{ label: 'Erstcheck', priceEur: 4.50 }, { label: 'Absoluter Boden', priceEur: 2.60 }]);
+
+    add('QUBT', 'Quantum Computing Inc.', 'Watchlist', 0, 0,
+      'MEIDEN. Kein proprietäres Hardware-Fundament, P/S >600x, Software-Only-Ansatz ohne Moat. Pets.com-Kandidat.',
+      []);
+
+    add('GOOGL', 'Alphabet Inc.', 'Watchlist', 290.00, 246.50,
+      'Beste Quantum-Infrastruktur im Mag7. Willow-Chip mit verifizierbarem Vorteil. Einstieg bei AI-Korrektur. Quantum ist kostenlose Option on top.',
+      [{ label: 'Erstposition', priceEur: 290.00 }, { label: 'Nachkauf 1', priceEur: 250.00 }, { label: 'Nachkauf 2', priceEur: 200.00 }]);
+
+    add('NVDA', 'NVIDIA Corporation', 'Watchlist', 165.00, 140.25,
+      'AI+Quantum Infrastrukturmonopol. NVQLink macht NVIDIA zum OS der Hybrid-Computing-Ära. Earnings heute Abend. Kaufzonen ~15-40% unter aktuellen Kursen.',
+      [{ label: 'Erstposition', priceEur: 165.00 }, { label: 'Nachkauf 1', priceEur: 140.00 }, { label: 'Nachkauf 2', priceEur: 115.00 }]);
+
+    add('MSFT', 'Microsoft Corporation', 'Watchlist', 340.00, 289.00,
+      'Azure Quantum = Hardware-agnostischer Gewinner. Majorana-1 Wildcard. Aktuell günstiger als Peers, Capex-Risiko beobachten. Erste Kaufzone nahe.',
+      [{ label: 'Erstposition', priceEur: 340.00 }, { label: 'Nachkauf 1', priceEur: 310.00 }, { label: 'Nachkauf 2', priceEur: 270.00 }]);
+
+    add('IBM', 'International Business Machines', 'Watchlist', 194.00, 164.90,
+      'Tiefste Enterprise-Quantum-Pipeline, 210x Genauigkeitsdurchbruch Mai 2026. Bereits -25% YTD, nähert sich Kaufzone. Quantum Advantage Demo H2 2026 als Katalysator.',
+      [{ label: 'Erstposition', priceEur: 194.00 }, { label: 'Nachkauf 1', priceEur: 172.00 }, { label: 'Nachkauf 2', priceEur: 147.00 }]);
+
+    add('SKYT', 'SkyWater Technology', 'Watchlist', 0, 0,
+      'Merger-Target von IonQ ($1,8Mrd.). Kein eigenständiger Investment-Case. Aktionäre haben zugestimmt, Closing Q2/Q3 2026 ausstehend.',
+      []);
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v3_quantum_sector')").run();
+  });
+
+  migrateV3();
+  console.log('Migration v3: Quantum Comp sector created with 9 positions.');
+}
+
 export default db;
