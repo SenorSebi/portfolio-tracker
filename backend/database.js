@@ -108,4 +108,87 @@ if (sectorCount.cnt === 0) {
   console.log('Database seeded with initial data.');
 }
 
+// ─── Migration v2: Sector 1 positions update ────────────────────────────────
+db.exec(`CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY, name TEXT UNIQUE)`);
+
+const alreadyRan = db.prepare("SELECT id FROM migrations WHERE name = 'v2_sector1_positions'").get();
+if (!alreadyRan) {
+  const insertPosition = db.prepare(
+    `INSERT INTO positions (sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+  const deleteDca = db.prepare('DELETE FROM dca_zones WHERE position_id = ?');
+  const updatePosition = db.prepare(
+    `UPDATE positions SET position_type=?, shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE ticker=? AND sector_id=?`
+  );
+
+  const sector1 = db.prepare("SELECT id FROM sectors WHERE order_index = 1").get();
+  if (sector1) {
+    const s1 = sector1.id;
+
+    const migrate = db.transaction(() => {
+      // Upsert helper
+      const upsert = (ticker, name, type, shares, cost, target, stopLoss, notes, zones) => {
+        const existing = db.prepare('SELECT id FROM positions WHERE ticker = ? AND sector_id = ?').get(ticker, s1);
+        let posId;
+        if (existing) {
+          updatePosition.run(type, shares, cost, target, stopLoss || null, notes, ticker, s1);
+          posId = existing.id;
+          deleteDca.run(posId);
+        } else {
+          const r = insertPosition.run(s1, ticker, name, type, shares, cost, target, stopLoss || null, notes);
+          posId = r.lastInsertRowid;
+        }
+        for (const z of zones) insertDca.run(posId, z.priceEur, z.label);
+      };
+
+      upsert('TT', 'Trane Technologies', 'Watchlist', 0, 0, 0, 0,
+        'HVAC/Datacenter-Kühlung, Rekord-Backlog $10,7Mrd. Stellar Energy Akquisition. Bucket A-Kandidat – noch keine Position. Q2 Earnings Juli 2026.',
+        [{ label: 'Erstposition', priceEur: 387 }, { label: 'Nachkauf 1', priceEur: 337 }, { label: 'Nachkauf 2', priceEur: 290 }]
+      );
+
+      upsert('ETN', 'Eaton Corporation', 'Watchlist', 0, 0, 0, 0,
+        'Energiemanagement/Power Infrastructure. Rekord Q1 2026. Noch keine Position – Erstposition bei aktuellem Kurs ~€327 möglich. Q2 Earnings 4. August 2026.',
+        [{ label: 'Erstposition', priceEur: 327 }, { label: 'Nachkauf 1', priceEur: 288 }, { label: 'Nachkauf 2', priceEur: 250 }]
+      );
+
+      upsert('SDGR', 'Schrödinger Inc.', 'Speculative', 0, 0, 10.35, 8.80,
+        'Physics+AI Plattform Molekülentwicklung. Kein Gewinn bis 2028. Cash $406M. Ajax-Exit-Upside, Bunsen-Launch. Max 3-5% Portfolio. NICHT Bucket A.',
+        [{ label: 'Erstposition', priceEur: 10.35 }, { label: 'Nachkauf 1', priceEur: 8.75 }, { label: 'Nachkauf 2', priceEur: 7.40 }]
+      );
+
+      upsert('AMAT', 'Applied Materials', 'Watchlist', 0, 0, 330, 0,
+        'Weltgrößter WFE-Anbieter. Record Q2, Advanced Packaging +50% 2026. NEXX-Akquisition. Warten auf Rücksetzer.',
+        [{ label: 'Erstcheck-Zone', priceEur: 330 }, { label: 'Nachkauf 1', priceEur: 283 }, { label: 'Nachkauf 2', priceEur: 242 }]
+      );
+
+      upsert('KLAC', 'KLA Corporation', 'Watchlist', 0, 0, 1380, 0,
+        'Monopol Chip-Inspektion/Metrologie. FY2025 Earnings +47%. Warten auf Rücksetzer. Q4 Earnings 30. Juli 2026.',
+        [{ label: 'Erstcheck-Zone', priceEur: 1380 }, { label: 'Nachkauf 1', priceEur: 1185 }, { label: 'Nachkauf 2', priceEur: 1010 }]
+      );
+
+      upsert('AMKR', 'Amkor Technology', 'Watchlist', 0, 0, 58, 51,
+        'OSAT #2 weltweit. Rekord Q1 2026 EPS +267%. Arizona Onshoring-Fab. $300M Buyback. Kaufzone aktiv.',
+        [{ label: 'Erstposition', priceEur: 58 }, { label: 'Nachkauf 1', priceEur: 49 }, { label: 'Nachkauf 2', priceEur: 41 }]
+      );
+
+      upsert('ASX', 'ASE Technology Holding (ADR)', 'Watchlist', 0, 0, 23, 0,
+        'Weltgrößter OSAT. P/E günstiger als Peers. Taiwan-Risiko begrenzt Gewichtung. Insider-Verkäufe beobachten. Q2 Earnings 23. Juli 2026.',
+        [{ label: 'Erstcheck-Zone', priceEur: 23 }, { label: 'Nachkauf 1', priceEur: 19 }, { label: 'Nachkauf 2', priceEur: 15 }]
+      );
+
+      upsert('ONTO', 'Onto Innovation', 'Watchlist', 0, 0, 200, 0,
+        'Mid-Cap Metrology/Inspektion. 2026 Wachstum >30%. Kurs +200% in 12M – warten auf Rücksetzer. Q2 Earnings ~Aug 2026.',
+        [{ label: 'Erstcheck-Zone', priceEur: 200 }, { label: 'Nachkauf 1', priceEur: 169 }, { label: 'Nachkauf 2', priceEur: 139 }]
+      );
+
+      db.prepare("INSERT INTO migrations (name) VALUES ('v2_sector1_positions')").run();
+    });
+
+    migrate();
+    console.log('Migration v2: Sector 1 positions updated.');
+  }
+}
+
 export default db;
