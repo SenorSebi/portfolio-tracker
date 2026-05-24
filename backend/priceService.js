@@ -58,7 +58,7 @@ async function getPrices(tickers) {
           cache.set(q.symbol, {
             ticker: q.symbol,
             priceUsd: q.price || 0,
-            changePercent: q.changesPercentage || 0,
+            changePercent: q.changePercentage ?? q.changesPercentage ?? 0,
             currency: 'USD',
             timestamp: now,
           });
