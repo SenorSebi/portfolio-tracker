@@ -3,12 +3,13 @@ import axios from 'axios'
 import { PortfolioData, Sector } from './types'
 import SummaryBar from './components/SummaryBar'
 import SectorView from './components/SectorView'
+import OverviewList from './components/OverviewList'
 
-const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+type ActiveView = 'overview' | number
 
 export default function App() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeView, setActiveView] = useState<ActiveView>('overview')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -42,8 +43,6 @@ export default function App() {
 
   useEffect(() => {
     fetchPortfolio()
-    const interval = setInterval(fetchPortfolio, REFRESH_INTERVAL)
-    return () => clearInterval(interval)
   }, [fetchPortfolio])
 
   if (loading) {
@@ -94,7 +93,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             {lastUpdated && (
               <span className="text-xs text-gray-400 hidden sm:block">
-                Updated: {lastUpdated.toLocaleTimeString('de-DE')}
+                Stand: {lastUpdated.toLocaleTimeString('de-DE')}
               </span>
             )}
             <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5">
@@ -116,34 +115,45 @@ export default function App() {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              {refreshing ? 'Lädt...' : 'Aktualisieren'}
             </button>
           </div>
         </div>
 
-        {/* Sector Tabs */}
-        {sectors.length > 0 && (
-          <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto pb-0">
-            {sectors.map((sector, index) => (
-              <button
-                key={sector.id}
-                onClick={() => setActiveTab(index)}
-                className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === index
-                    ? 'border-accent text-accent'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                }`}
-              >
-                {sector.name}
-                <span className={`ml-2 text-xs rounded-full px-1.5 py-0.5 ${
-                  activeTab === index ? 'bg-blue-100 text-accent' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {sector.positions?.length || 0}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Navigation Tabs */}
+        <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto pb-0">
+          {/* Overview tab */}
+          <button
+            onClick={() => setActiveView('overview')}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeView === 'overview'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            Übersicht
+          </button>
+
+          {/* Sector tabs */}
+          {sectors.map((sector, index) => (
+            <button
+              key={sector.id}
+              onClick={() => setActiveView(index)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeView === index
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              {sector.name}
+              <span className={`ml-2 text-xs rounded-full px-1.5 py-0.5 ${
+                activeView === index ? 'bg-blue-100 text-accent' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {sector.positions?.length || 0}
+              </span>
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* Summary Bar */}
@@ -155,30 +165,38 @@ export default function App() {
         />
       )}
 
-      {/* Error Banner (non-fatal) */}
+      {/* Error Banner */}
       {error && portfolioData && (
         <div className="max-w-7xl mx-auto px-4 mt-4">
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">
-            Warning: {error}
+            {error}
           </div>
         </div>
       )}
 
-      {/* Active Sector View */}
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {sectors.length > 0 && sectors[activeTab] && (
-          <SectorView
-            key={sectors[activeTab].id}
-            sector={sectors[activeTab]}
-            allSectors={sectors}
+        {activeView === 'overview' ? (
+          <OverviewList
+            sectors={sectors}
             prices={prices}
             eurUsdRate={eurUsdRate}
-            onRefresh={fetchPortfolio}
           />
+        ) : (
+          typeof activeView === 'number' && sectors[activeView] && (
+            <SectorView
+              key={sectors[activeView].id}
+              sector={sectors[activeView]}
+              allSectors={sectors}
+              prices={prices}
+              eurUsdRate={eurUsdRate}
+              onRefresh={fetchPortfolio}
+            />
+          )
         )}
         {sectors.length === 0 && !loading && (
           <div className="text-center py-20 text-gray-500">
-            <p className="text-lg">No sectors found. Check your database connection.</p>
+            <p className="text-lg">Keine Sektoren gefunden. Datenbankverbindung prüfen.</p>
           </div>
         )}
       </main>
