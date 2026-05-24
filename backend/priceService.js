@@ -1,26 +1,19 @@
 import axios from 'axios';
 
 const cache = new Map();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+// FMP free plan: 250 req/day, no batch queries → individual calls, 2h cache
+const CACHE_TTL = 2 * 60 * 60 * 1000;
 
 const FMP_KEY = process.env.FMP_API_KEY;
 const FMP_BASE = 'https://financialmodelingprep.com/stable';
 
-async function fetchFmpBatch(tickers) {
-  if (!FMP_KEY) throw new Error('FMP_API_KEY not set');
-  const symbols = tickers.join(',');
-  const res = await axios.get(`${FMP_BASE}/quote?symbol=${symbols}&apikey=${FMP_KEY}`, { timeout: 12000 });
-  return res.data;
+async function fetchFmpSingle(ticker) {
+  const res = await axios.get(`${FMP_BASE}/quote?symbol=${ticker}&apikey=${FMP_KEY}`, { timeout: 12000 });
+  return res.data?.[0] || null;
 }
 
 async function fetchEurUsd() {
   try {
-    if (FMP_KEY) {
-      const res = await axios.get(`${FMP_BASE}/forex-quote?symbol=EURUSD&apikey=${FMP_KEY}`, { timeout: 8000 });
-      const rate = res.data?.[0]?.price || res.data?.[0]?.bid;
-      if (rate) return parseFloat(rate);
-    }
-    // Fallback: exchangerate-api (no key needed)
     const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', { timeout: 8000 });
     const eurPerUsd = res.data?.rates?.EUR;
     if (eurPerUsd) return 1 / eurPerUsd;
@@ -33,7 +26,6 @@ async function fetchEurUsd() {
 async function getPrices(tickers) {
   const now = Date.now();
 
-  // EUR/USD separately
   const eurCached = cache.get('EURUSD=X');
   if (!eurCached || (now - eurCached.timestamp) >= CACHE_TTL) {
     const rate = await fetchEurUsd();
@@ -50,28 +42,25 @@ async function getPrices(tickers) {
     if (!FMP_KEY) {
       console.warn('FMP_API_KEY not set — no live prices');
     } else {
-      try {
-        const quotes = await fetchFmpBatch(missing);
-        if (!Array.isArray(quotes)) throw new Error(`FMP returned: ${JSON.stringify(quotes)}`);
-
-        for (const q of quotes) {
-          cache.set(q.symbol, {
-            ticker: q.symbol,
+      const results = await Promise.allSettled(missing.map(t => fetchFmpSingle(t)));
+      for (let i = 0; i < missing.length; i++) {
+        const ticker = missing[i];
+        const result = results[i];
+        if (result.status === 'fulfilled' && result.value) {
+          const q = result.value;
+          cache.set(ticker, {
+            ticker,
             priceUsd: q.price || 0,
             changePercent: q.changePercentage ?? q.changesPercentage ?? 0,
             currency: 'USD',
             timestamp: now,
           });
-        }
-
-        for (const t of missing) {
-          if (!cache.has(t)) {
-            console.warn(`No FMP data for ${t}`);
-            cache.set(t, { ticker: t, priceUsd: 0, changePercent: 0, currency: 'USD', timestamp: now });
+        } else {
+          if (result.status === 'rejected') {
+            console.error(`FMP fetch failed for ${ticker}:`, result.reason?.message);
           }
+          cache.set(ticker, { ticker, priceUsd: 0, changePercent: 0, currency: 'USD', timestamp: now });
         }
-      } catch (err) {
-        console.error('FMP batch fetch failed:', err.message);
       }
     }
   }
