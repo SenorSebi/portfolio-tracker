@@ -15,23 +15,27 @@ async function getYahooCrumb() {
   if (yfCrumb && (Date.now() - crumbFetchedAt) < CRUMB_TTL) return { crumb: yfCrumb, cookie: yfCookie };
 
   try {
-    // Step 1: get session cookie
-    const r1 = await axios.get('https://fc.yahoo.com', {
-      headers: { 'User-Agent': UA, 'Accept': '*/*' },
-      timeout: 8000,
+    // Step 1: get session cookie from finance.yahoo.com
+    const r1 = await axios.get('https://finance.yahoo.com/', {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      timeout: 10000,
       maxRedirects: 5,
     });
     const setCookie = r1.headers['set-cookie'];
     yfCookie = Array.isArray(setCookie) ? setCookie.map(c => c.split(';')[0]).join('; ') : '';
 
     // Step 2: get crumb
-    const r2 = await axios.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+    const r2 = await axios.get('https://query1.finance.yahoo.com/v1/test/getcrumb', {
       headers: { 'User-Agent': UA, 'Cookie': yfCookie },
       timeout: 8000,
     });
     yfCrumb = r2.data;
     crumbFetchedAt = Date.now();
-    console.log('Yahoo Finance crumb refreshed.');
+    console.log('Yahoo Finance crumb refreshed:', yfCrumb);
     return { crumb: yfCrumb, cookie: yfCookie };
   } catch (err) {
     console.error('Crumb fetch failed:', err.message);
