@@ -17,17 +17,42 @@ app.use(express.json());
 app.get('/api/debug/prices', async (req, res) => {
   const key = process.env.FMP_API_KEY;
   const result = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + '...' : null };
+
+  // Test 1: single quote
   try {
-    const axios = (await import('axios')).default;
     const url = `https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${key}`;
     const r = await axios.get(url, { timeout: 10000 });
-    result.fmpStatus = r.status;
-    result.fmpData = r.data;
+    result.singleQuote = { status: r.status, data: r.data };
   } catch (err) {
-    result.fmpError = err.message;
-    result.fmpStatus = err.response?.status;
-    result.fmpResponse = err.response?.data;
+    result.singleQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
   }
+
+  // Test 2: batch quote
+  try {
+    const url = `https://financialmodelingprep.com/stable/quote?symbol=AAPL,MSFT,NVDA&apikey=${key}`;
+    const r = await axios.get(url, { timeout: 10000 });
+    result.batchQuote = { status: r.status, data: r.data };
+  } catch (err) {
+    result.batchQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
+  }
+
+  // Test 3: forex
+  try {
+    const url = `https://financialmodelingprep.com/stable/forex-quote?symbol=EURUSD&apikey=${key}`;
+    const r = await axios.get(url, { timeout: 10000 });
+    result.forexQuote = { status: r.status, data: r.data };
+  } catch (err) {
+    result.forexQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
+  }
+
+  // Test 4: actual getPrices output
+  try {
+    const prices = await getPrices(['EURUSD=X', 'AAPL', 'MSFT', 'NVDA']);
+    result.getPricesResult = prices;
+  } catch (err) {
+    result.getPricesError = err.message;
+  }
+
   res.json(result);
 });
 
