@@ -18,40 +18,23 @@ app.get('/api/debug/prices', async (req, res) => {
   const key = process.env.FMP_API_KEY;
   const result = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + '...' : null };
 
-  // Test 1: single quote
-  try {
-    const url = `https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${key}`;
-    const r = await axios.get(url, { timeout: 10000 });
-    result.singleQuote = { status: r.status, data: r.data };
-  } catch (err) {
-    result.singleQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
-  }
+  // Test each ticker from DB individually
+  const dbTickers = db.prepare('SELECT DISTINCT ticker FROM positions WHERE ticker IS NOT NULL').all().map(r => r.ticker);
+  result.dbTickers = dbTickers;
+  result.tickerResults = {};
 
-  // Test 2: batch quote
-  try {
-    const url = `https://financialmodelingprep.com/stable/quote?symbol=AAPL,MSFT,NVDA&apikey=${key}`;
-    const r = await axios.get(url, { timeout: 10000 });
-    result.batchQuote = { status: r.status, data: r.data };
-  } catch (err) {
-    result.batchQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
-  }
-
-  // Test 3: forex
-  try {
-    const url = `https://financialmodelingprep.com/stable/forex-quote?symbol=EURUSD&apikey=${key}`;
-    const r = await axios.get(url, { timeout: 10000 });
-    result.forexQuote = { status: r.status, data: r.data };
-  } catch (err) {
-    result.forexQuote = { error: err.message, status: err.response?.status, data: err.response?.data };
-  }
-
-  // Test 4: actual getPrices output
-  try {
-    const prices = await getPrices(['EURUSD=X', 'AAPL', 'MSFT', 'NVDA']);
-    result.getPricesResult = prices;
-  } catch (err) {
-    result.getPricesError = err.message;
-  }
+  await Promise.all(dbTickers.map(async (ticker) => {
+    try {
+      const url = `https://financialmodelingprep.com/stable/quote?symbol=${ticker}&apikey=${key}`;
+      const r = await axios.get(url, { timeout: 10000 });
+      const q = r.data?.[0];
+      result.tickerResults[ticker] = q
+        ? { ok: true, price: q.price, changePercentage: q.changePercentage }
+        : { ok: false, reason: 'empty response', raw: r.data };
+    } catch (err) {
+      result.tickerResults[ticker] = { ok: false, status: err.response?.status, reason: err.response?.data || err.message };
+    }
+  }));
 
   res.json(result);
 });
