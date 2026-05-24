@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import db from './database.js';
-import { getPrices, clearCache } from './priceService.js';
+import { getPrices, clearCache, getRefreshStatus } from './priceService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -48,6 +48,12 @@ app.get('/api/debug/prices', async (req, res) => {
   }
 
   res.json(result);
+});
+
+// ─── GET /api/prices/status ──────────────────────────────────────────────────
+app.get('/api/prices/status', (req, res) => {
+  const tickers = db.prepare('SELECT DISTINCT ticker FROM positions WHERE ticker IS NOT NULL').all().map(r => r.ticker);
+  res.json(getRefreshStatus(tickers));
 });
 
 // ─── GET /api/portfolio ─────────────────────────────────────────────────────
