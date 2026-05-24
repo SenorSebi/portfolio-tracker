@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { PortfolioData, Sector } from './types'
 import SummaryBar from './components/SummaryBar'
@@ -7,6 +7,14 @@ import OverviewList from './components/OverviewList'
 
 type ActiveView = 'overview' | number
 
+interface RefreshStatus {
+  total: number
+  updated: number
+  pending: number
+  nextBatchAt: number | null
+  done: boolean
+}
+
 export default function App() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [activeView, setActiveView] = useState<ActiveView>('overview')
@@ -14,6 +22,19 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const prevUpdatedRef = useRef(0)
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+  }, [])
+
+  useEffect(() => () => stopPolling(), [stopPolling])
 
   const fetchPortfolio = useCallback(async () => {
     try {
@@ -29,17 +50,58 @@ export default function App() {
     }
   }, [])
 
+  const checkStatus = useCallback(async () => {
+    try {
+      const { data } = await axios.get<RefreshStatus>('/api/prices/status')
+      setRefreshStatus(data)
+
+      if (data.nextBatchAt) {
+        setCountdown(Math.max(0, Math.round((data.nextBatchAt - Date.now()) / 1000)))
+      }
+
+      // Fetch portfolio whenever new tickers come in
+      if (data.updated > prevUpdatedRef.current) {
+        prevUpdatedRef.current = data.updated
+        fetchPortfolio()
+      }
+
+      if (data.done) {
+        stopPolling()
+        fetchPortfolio()
+        // Show "Alle aktualisiert" for 4 seconds, then clear
+        setTimeout(() => setRefreshStatus(null), 4000)
+      }
+    } catch (err) {
+      console.error('Status check failed:', err)
+    }
+  }, [fetchPortfolio, stopPolling])
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
+    stopPolling()
+    prevUpdatedRef.current = 0
+    setCountdown(null)
+
     try {
       await axios.get('/api/prices/refresh')
+      // First status check + portfolio fetch right after first batch
+      await checkStatus()
       await fetchPortfolio()
+
+      // Poll every 5s to detect when next batch completes
+      pollRef.current = setInterval(checkStatus, 5000)
+
+      // Smooth countdown decrement between polls
+      countdownRef.current = setInterval(() => {
+        setCountdown(prev => (prev !== null && prev > 0) ? prev - 1 : prev)
+      }, 1000)
     } catch (err) {
       console.error('Refresh failed:', err)
+      stopPolling()
     } finally {
       setRefreshing(false)
     }
-  }, [fetchPortfolio])
+  }, [checkStatus, fetchPortfolio, stopPolling])
 
   useEffect(() => {
     fetchPortfolio()
@@ -50,7 +112,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading portfolio...</p>
+          <p className="text-gray-600 font-medium">Lade Portfolio...</p>
         </div>
       </div>
     )
@@ -61,13 +123,10 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
           <div className="text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Failed to load portfolio</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Fehler beim Laden</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={fetchPortfolio}
-            className="bg-accent text-white px-6 py-2 rounded-lg hover:bg-accent-dark transition-colors"
-          >
-            Try again
+          <button onClick={fetchPortfolio} className="bg-accent text-white px-6 py-2 rounded-lg hover:bg-accent-dark transition-colors">
+            Erneut versuchen
           </button>
         </div>
       </div>
@@ -77,6 +136,8 @@ export default function App() {
   const sectors: Sector[] = portfolioData?.sectors || []
   const prices = portfolioData?.prices || {}
   const eurUsdRate = portfolioData?.eurUsdRate || 1.08
+
+  const isRefreshing = refreshing || (refreshStatus !== null && !refreshStatus.done)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -91,38 +152,58 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            {lastUpdated && (
+            {/* Progress / Status display */}
+            {refreshStatus ? (
+              <div className="flex items-center gap-2 text-sm">
+                {refreshStatus.done ? (
+                  <span className="text-green-600 font-semibold">
+                    ✓ Alle {refreshStatus.total} aktualisiert
+                  </span>
+                ) : (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span className="font-semibold text-gray-800">
+                      {refreshStatus.updated}/{refreshStatus.total}
+                    </span>
+                    <span className="text-gray-400 text-xs hidden sm:block">aktualisiert</span>
+                    {countdown !== null && countdown > 0 && (
+                      <span className="text-gray-400 text-xs hidden sm:block">
+                        · nächste in {countdown}s
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : lastUpdated ? (
               <span className="text-xs text-gray-400 hidden sm:block">
                 Stand: {lastUpdated.toLocaleTimeString('de-DE')}
               </span>
-            )}
+            ) : null}
+
+            {/* EUR/USD */}
             <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5">
               <span className="text-xs text-gray-500 font-medium">EUR/USD</span>
               <span className="text-sm font-semibold text-gray-800">
                 {eurUsdRate.toLocaleString('de-DE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
               </span>
             </div>
+
+            {/* Refresh button */}
             <button
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={isRefreshing}
               className="flex items-center gap-2 bg-accent text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-accent-dark transition-colors disabled:opacity-60"
             >
-              <svg
-                className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              {refreshing ? 'Lädt...' : 'Aktualisieren'}
+              {isRefreshing ? 'Lädt...' : 'Aktualisieren'}
             </button>
           </div>
         </div>
 
         {/* Navigation Tabs */}
         <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto pb-0">
-          {/* Overview tab */}
           <button
             onClick={() => setActiveView('overview')}
             className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
@@ -133,8 +214,6 @@ export default function App() {
           >
             Übersicht
           </button>
-
-          {/* Sector tabs */}
           {sectors.map((sector, index) => (
             <button
               key={sector.id}
@@ -158,30 +237,20 @@ export default function App() {
 
       {/* Summary Bar */}
       {portfolioData && (
-        <SummaryBar
-          sectors={sectors}
-          prices={prices}
-          eurUsdRate={eurUsdRate}
-        />
+        <SummaryBar sectors={sectors} prices={prices} eurUsdRate={eurUsdRate} />
       )}
 
       {/* Error Banner */}
       {error && portfolioData && (
         <div className="max-w-7xl mx-auto px-4 mt-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">
-            {error}
-          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">{error}</div>
         </div>
       )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeView === 'overview' ? (
-          <OverviewList
-            sectors={sectors}
-            prices={prices}
-            eurUsdRate={eurUsdRate}
-          />
+          <OverviewList sectors={sectors} prices={prices} eurUsdRate={eurUsdRate} />
         ) : (
           typeof activeView === 'number' && sectors[activeView] && (
             <SectorView
@@ -196,7 +265,7 @@ export default function App() {
         )}
         {sectors.length === 0 && !loading && (
           <div className="text-center py-20 text-gray-500">
-            <p className="text-lg">Keine Sektoren gefunden. Datenbankverbindung prüfen.</p>
+            <p className="text-lg">Keine Sektoren gefunden.</p>
           </div>
         )}
       </main>

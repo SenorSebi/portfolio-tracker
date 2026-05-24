@@ -1,17 +1,18 @@
 import axios from 'axios';
 
 const cache = new Map();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
-const RETRY_AFTER = 2 * 60 * 1000; // retry failed tickers after 2 min
+const CACHE_TTL = 60 * 60 * 1000;
+const RETRY_AFTER = 2 * 60 * 1000;
 
 const TD_KEY = process.env.TWELVE_DATA_API_KEY;
 const TD_BASE = 'https://api.twelvedata.com';
 
-const BATCH_SIZE = 7; // stay under 8 credits/min limit
+const BATCH_SIZE = 7;
 const BATCH_INTERVAL_MS = 65 * 1000;
 
 let batchQueue = [];
 let batchTimeout = null;
+let nextBatchAt = null;
 
 async function fetchTdQuotes(tickers) {
   const symbols = tickers.join(',');
@@ -22,7 +23,6 @@ async function fetchTdQuotes(tickers) {
 
 async function fetchEurUsd() {
   try {
-    // Use exchangerate-api — free, no rate limit, no TD credit used
     const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', { timeout: 8000 });
     const eurPerUsd = res.data?.rates?.EUR;
     if (eurPerUsd) return 1 / eurPerUsd;
@@ -34,7 +34,6 @@ async function fetchEurUsd() {
 
 function setCacheEntry(ticker, priceUsd, changePercent, currency = 'USD') {
   const now = Date.now();
-  // Failed tickers get a short TTL so they are retried soon
   const timestamp = priceUsd > 0 ? now : now - CACHE_TTL + RETRY_AFTER;
   cache.set(ticker, { ticker, priceUsd, changePercent, currency, timestamp });
 }
@@ -62,16 +61,19 @@ function scheduleBackgroundBatch(tickers) {
     if (!batchQueue.includes(t)) batchQueue.push(t);
   }
   if (!batchTimeout) {
+    nextBatchAt = Date.now() + BATCH_INTERVAL_MS;
     batchTimeout = setTimeout(runBackgroundBatch, BATCH_INTERVAL_MS);
   }
 }
 
 async function runBackgroundBatch() {
   batchTimeout = null;
+  nextBatchAt = null;
   if (!batchQueue.length || !TD_KEY) return;
   const batch = batchQueue.splice(0, BATCH_SIZE);
   await fetchAndCache(batch);
   if (batchQueue.length > 0) {
+    nextBatchAt = Date.now() + BATCH_INTERVAL_MS;
     batchTimeout = setTimeout(runBackgroundBatch, BATCH_INTERVAL_MS);
   }
 }
@@ -92,9 +94,7 @@ async function getPrices(tickers) {
   });
 
   if (stale.length > 0 && TD_KEY) {
-    // Fetch first batch immediately so the user sees some prices right away
     await fetchAndCache(stale.slice(0, BATCH_SIZE));
-    // Schedule the rest in background (65s apart to respect 8 credits/min)
     if (stale.length > BATCH_SIZE) scheduleBackgroundBatch(stale.slice(BATCH_SIZE));
   } else if (!TD_KEY) {
     console.warn('TWELVE_DATA_API_KEY not set — no live prices');
@@ -110,7 +110,23 @@ async function getPrices(tickers) {
 function clearCache() {
   batchQueue = [];
   if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
+  nextBatchAt = null;
   cache.clear();
 }
 
-export { getPrices, clearCache };
+function getRefreshStatus(tickers) {
+  const now = Date.now();
+  const updated = tickers.filter(t => {
+    const c = cache.get(t);
+    return c && c.priceUsd > 0 && (now - c.timestamp) < CACHE_TTL;
+  }).length;
+  return {
+    total: tickers.length,
+    updated,
+    pending: batchQueue.length,
+    nextBatchAt,
+    done: batchQueue.length === 0 && nextBatchAt === null,
+  };
+}
+
+export { getPrices, clearCache, getRefreshStatus };
