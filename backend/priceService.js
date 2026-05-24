@@ -1,19 +1,26 @@
 import axios from 'axios';
 
 const cache = new Map();
-// FMP free plan: 250 req/day, no batch queries → individual calls, 2h cache
-const CACHE_TTL = 2 * 60 * 60 * 1000;
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour — Twelve Data free: 800 credits/day
 
-const FMP_KEY = process.env.FMP_API_KEY;
-const FMP_BASE = 'https://financialmodelingprep.com/stable';
+const TD_KEY = process.env.TWELVE_DATA_API_KEY;
+const TD_BASE = 'https://api.twelvedata.com';
 
-async function fetchFmpSingle(ticker) {
-  const res = await axios.get(`${FMP_BASE}/quote?symbol=${ticker}&apikey=${FMP_KEY}`, { timeout: 12000 });
-  return res.data?.[0] || null;
+async function fetchTdQuotes(tickers) {
+  const symbols = tickers.join(',');
+  const res = await axios.get(`${TD_BASE}/quote?symbol=${symbols}&apikey=${TD_KEY}`, { timeout: 15000 });
+  const data = res.data;
+  // Single symbol → flat object; multiple → object keyed by symbol
+  return tickers.length === 1 ? { [tickers[0]]: data } : data;
 }
 
 async function fetchEurUsd() {
   try {
+    if (TD_KEY) {
+      const res = await axios.get(`${TD_BASE}/exchange_rate?symbol=EUR/USD&apikey=${TD_KEY}`, { timeout: 8000 });
+      const rate = parseFloat(res.data?.rate);
+      if (rate && !isNaN(rate)) return rate;
+    }
     const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', { timeout: 8000 });
     const eurPerUsd = res.data?.rates?.EUR;
     if (eurPerUsd) return 1 / eurPerUsd;
@@ -39,28 +46,28 @@ async function getPrices(tickers) {
   });
 
   if (missing.length > 0) {
-    if (!FMP_KEY) {
-      console.warn('FMP_API_KEY not set — no live prices');
+    if (!TD_KEY) {
+      console.warn('TWELVE_DATA_API_KEY not set — no live prices');
     } else {
-      const results = await Promise.allSettled(missing.map(t => fetchFmpSingle(t)));
-      for (let i = 0; i < missing.length; i++) {
-        const ticker = missing[i];
-        const result = results[i];
-        if (result.status === 'fulfilled' && result.value) {
-          const q = result.value;
-          cache.set(ticker, {
-            ticker,
-            priceUsd: q.price || 0,
-            changePercent: q.changePercentage ?? q.changesPercentage ?? 0,
-            currency: 'USD',
-            timestamp: now,
-          });
-        } else {
-          if (result.status === 'rejected') {
-            console.error(`FMP fetch failed for ${ticker}:`, result.reason?.message);
+      try {
+        const quotes = await fetchTdQuotes(missing);
+        for (const ticker of missing) {
+          const q = quotes[ticker];
+          if (q && !q.code && q.close) {
+            cache.set(ticker, {
+              ticker,
+              priceUsd: parseFloat(q.close) || 0,
+              changePercent: parseFloat(q.percent_change) || 0,
+              currency: q.currency || 'USD',
+              timestamp: now,
+            });
+          } else {
+            if (q?.code) console.error(`Twelve Data error for ${ticker}: [${q.code}] ${q.message}`);
+            cache.set(ticker, { ticker, priceUsd: 0, changePercent: 0, currency: 'USD', timestamp: now });
           }
-          cache.set(ticker, { ticker, priceUsd: 0, changePercent: 0, currency: 'USD', timestamp: now });
         }
+      } catch (err) {
+        console.error('Twelve Data fetch failed:', err.message);
       }
     }
   }
