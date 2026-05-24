@@ -15,26 +15,37 @@ app.use(express.json());
 
 // ─── GET /api/debug/prices ───────────────────────────────────────────────────
 app.get('/api/debug/prices', async (req, res) => {
-  const key = process.env.FMP_API_KEY;
+  const key = process.env.TWELVE_DATA_API_KEY;
   const result = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + '...' : null };
 
-  // Test each ticker from DB individually
   const dbTickers = db.prepare('SELECT DISTINCT ticker FROM positions WHERE ticker IS NOT NULL').all().map(r => r.ticker);
   result.dbTickers = dbTickers;
-  result.tickerResults = {};
 
-  await Promise.all(dbTickers.map(async (ticker) => {
-    try {
-      const url = `https://financialmodelingprep.com/stable/quote?symbol=${ticker}&apikey=${key}`;
-      const r = await axios.get(url, { timeout: 10000 });
-      const q = r.data?.[0];
-      result.tickerResults[ticker] = q
-        ? { ok: true, price: q.price, changePercentage: q.changePercentage }
-        : { ok: false, reason: 'empty response', raw: r.data };
-    } catch (err) {
-      result.tickerResults[ticker] = { ok: false, status: err.response?.status, reason: err.response?.data || err.message };
+  // Test batch quote for all DB tickers
+  try {
+    const symbols = dbTickers.join(',');
+    const r = await axios.get(`https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${key}`, { timeout: 15000 });
+    const data = r.data;
+    result.batchResult = {};
+    for (const ticker of dbTickers) {
+      const q = dbTickers.length === 1 ? data : data[ticker];
+      if (q && !q.code && q.close) {
+        result.batchResult[ticker] = { ok: true, price: q.close, change: q.percent_change };
+      } else {
+        result.batchResult[ticker] = { ok: false, code: q?.code, msg: q?.message };
+      }
     }
-  }));
+  } catch (err) {
+    result.batchError = err.message;
+  }
+
+  // Test EUR/USD
+  try {
+    const r = await axios.get(`https://api.twelvedata.com/exchange_rate?symbol=EUR/USD&apikey=${key}`, { timeout: 8000 });
+    result.eurUsd = r.data;
+  } catch (err) {
+    result.eurUsdError = err.message;
+  }
 
   res.json(result);
 });
