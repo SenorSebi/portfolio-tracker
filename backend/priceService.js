@@ -1,24 +1,23 @@
 import axios from 'axios';
 
 const cache = new Map();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes — FMP free tier: 250 req/day
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 const FMP_KEY = process.env.FMP_API_KEY;
-const FMP_BASE = 'https://financialmodelingprep.com/api/v3';
+const FMP_BASE = 'https://financialmodelingprep.com/stable';
 
 async function fetchFmpBatch(tickers) {
   if (!FMP_KEY) throw new Error('FMP_API_KEY not set');
   const symbols = tickers.join(',');
-  const res = await axios.get(`${FMP_BASE}/quote/${symbols}?apikey=${FMP_KEY}`, { timeout: 12000 });
-  return res.data; // array of quote objects
+  const res = await axios.get(`${FMP_BASE}/quote?symbol=${symbols}&apikey=${FMP_KEY}`, { timeout: 12000 });
+  return res.data;
 }
 
 async function fetchEurUsd() {
   try {
-    // FMP forex endpoint
     if (FMP_KEY) {
-      const res = await axios.get(`${FMP_BASE}/fx/EURUSD?apikey=${FMP_KEY}`, { timeout: 8000 });
-      const rate = res.data?.[0]?.bid || res.data?.[0]?.price;
+      const res = await axios.get(`${FMP_BASE}/forex-quote?symbol=EURUSD&apikey=${FMP_KEY}`, { timeout: 8000 });
+      const rate = res.data?.[0]?.price || res.data?.[0]?.bid;
       if (rate) return parseFloat(rate);
     }
     // Fallback: exchangerate-api (no key needed)
@@ -65,7 +64,6 @@ async function getPrices(tickers) {
           });
         }
 
-        // tickers with no FMP result → mark with 0 so they don't retry immediately
         for (const t of missing) {
           if (!cache.has(t)) {
             console.warn(`No FMP data for ${t}`);

@@ -19,7 +19,7 @@ app.get('/api/debug/prices', async (req, res) => {
   const result = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + '...' : null };
   try {
     const axios = (await import('axios')).default;
-    const url = `https://financialmodelingprep.com/api/v3/quote/AAPL?apikey=${key}`;
+    const url = `https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${key}`;
     const r = await axios.get(url, { timeout: 10000 });
     result.fmpStatus = r.status;
     result.fmpData = r.data;
