@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import axios from 'axios';
 import db from './database.js';
 import { getPrices, clearCache } from './priceService.js';
 
