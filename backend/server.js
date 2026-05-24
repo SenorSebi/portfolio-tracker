@@ -12,6 +12,24 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// ─── GET /api/debug/prices ───────────────────────────────────────────────────
+app.get('/api/debug/prices', async (req, res) => {
+  const key = process.env.FMP_API_KEY;
+  const result = { keySet: !!key, keyPrefix: key ? key.slice(0, 6) + '...' : null };
+  try {
+    const axios = (await import('axios')).default;
+    const url = `https://financialmodelingprep.com/api/v3/quote/AAPL?apikey=${key}`;
+    const r = await axios.get(url, { timeout: 10000 });
+    result.fmpStatus = r.status;
+    result.fmpData = r.data;
+  } catch (err) {
+    result.fmpError = err.message;
+    result.fmpStatus = err.response?.status;
+    result.fmpResponse = err.response?.data;
+  }
+  res.json(result);
+});
+
 // ─── GET /api/portfolio ─────────────────────────────────────────────────────
 app.get('/api/portfolio', async (req, res) => {
   try {
