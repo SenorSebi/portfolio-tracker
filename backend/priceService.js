@@ -9,7 +9,7 @@ const FMP_BASE = 'https://financialmodelingprep.com/api/v3';
 async function fetchFmpBatch(tickers) {
   if (!FMP_KEY) throw new Error('FMP_API_KEY not set');
   const symbols = tickers.join(',');
-  const res = await axios.get(`${FMP_BASE}/quote/${encodeURIComponent(symbols)}?apikey=${FMP_KEY}`, { timeout: 12000 });
+  const res = await axios.get(`${FMP_BASE}/quote/${symbols}?apikey=${FMP_KEY}`, { timeout: 12000 });
   return res.data; // array of quote objects
 }
 
