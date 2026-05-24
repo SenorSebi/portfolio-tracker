@@ -4,7 +4,7 @@ import { PortfolioData, Sector } from './types'
 import SummaryBar from './components/SummaryBar'
 import SectorView from './components/SectorView'
 
-const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes
 
 export default function App() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
