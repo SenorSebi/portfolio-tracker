@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { Position, Trade, TradeFormData } from '../types'
+import PanicGuardModal from './PanicGuardModal'
 
 interface TradeLogModalProps {
   position: Position
+  hasActiveAlert?: boolean
   onClose: () => void
   onSave: () => void
 }
@@ -16,12 +18,13 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-export default function TradeLogModal({ position, onClose, onSave }: TradeLogModalProps) {
+export default function TradeLogModal({ position, hasActiveAlert = false, onClose, onSave }: TradeLogModalProps) {
   const [trades, setTrades] = useState<Trade[]>([])
   const [loadingTrades, setLoadingTrades] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [panicGuard, setPanicGuard] = useState<null | { resolve: (reason: string) => void; reject: () => void }>(null)
 
   const [form, setForm] = useState<TradeFormData>({
     position_id: position.id,
@@ -57,9 +60,25 @@ export default function TradeLogModal({ position, onClose, onSave }: TradeLogMod
     return Object.keys(newErrors).length === 0
   }
 
+  const waitForPanicGuard = (): Promise<string> =>
+    new Promise((resolve, reject) => {
+      setPanicGuard({ resolve, reject })
+    })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
+
+    let panicReason: string | null = null
+
+    // PanicGuard: intercept unplanned sells (no active alert)
+    if (form.trade_type === 'Sell' && !hasActiveAlert) {
+      try {
+        panicReason = await waitForPanicGuard()
+      } catch {
+        return // user cancelled
+      }
+    }
 
     setSubmitting(true)
     setSuccessMsg(null)
@@ -70,6 +89,16 @@ export default function TradeLogModal({ position, onClose, onSave }: TradeLogMod
         price_eur: Number(form.price_eur),
         broker_fee_eur: Number(form.broker_fee_eur) || 0,
       })
+
+      if (panicReason) {
+        await axios.post('/api/journal', {
+          ticker: position.ticker,
+          action: 'sell',
+          note: panicReason,
+          rule_followed: false,
+          unplanned: true,
+        })
+      }
 
       setForm(f => ({
         ...f,
@@ -142,6 +171,14 @@ export default function TradeLogModal({ position, onClose, onSave }: TradeLogMod
   const runningAvgCost = runningShares > 0 ? runningCost / runningShares : 0
 
   return (
+    <>
+    {panicGuard && (
+      <PanicGuardModal
+        ticker={position.ticker}
+        onConfirm={reason => { setPanicGuard(null); panicGuard.resolve(reason) }}
+        onCancel={() => { setPanicGuard(null); panicGuard.reject() }}
+      />
+    )}
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
@@ -413,5 +450,6 @@ export default function TradeLogModal({ position, onClose, onSave }: TradeLogMod
         </div>
       </div>
     </div>
+    </>
   )
 }

@@ -4,6 +4,51 @@ export interface DcaZone {
   label: string;
 }
 
+export interface Thesis {
+  id?: number;
+  ticker: string;
+  bucket: string;
+  case: string;
+  right_if: string;
+  wrong_if: string;
+  updated_at?: string;
+}
+
+export interface TakeProfitRule {
+  targetPct: number;
+  sharesToSell: number;
+  label: string;
+}
+
+export interface ExitRules {
+  id?: number;
+  ticker: string;
+  stop_loss_pct: number | null;
+  take_profit_rules: TakeProfitRule[];
+  thesis_break_condition: string;
+  updated_at?: string;
+}
+
+export interface JournalEntry {
+  id?: number;
+  ticker: string | null;
+  action: string;
+  note: string;
+  luck_or_skill: 'luck' | 'skill' | 'loss' | null;
+  rule_followed: number;
+  unplanned: number;
+  created_at?: string;
+}
+
+export interface Alert {
+  ticker: string;
+  companyName: string;
+  type: 'stop_loss' | 'take_profit';
+  message: string;
+  priceEur: number;
+  triggerPriceEur: number;
+}
+
 export interface Position {
   id: number;
   sector_id: number;
@@ -16,6 +61,8 @@ export interface Position {
   stop_loss_eur: number | null;
   notes: string;
   dca_zones: DcaZone[];
+  thesis: Thesis | null;
+  exit_rules: ExitRules | null;
   created_at: string;
 }
 

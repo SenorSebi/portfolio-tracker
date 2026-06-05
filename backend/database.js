@@ -305,4 +305,45 @@ if (!v4ran) {
   console.log('Migration v4: Cybersecurity sector created with 7 positions.');
 }
 
+// ─── Migration v5: thesis, exit_rules, journal tables ────────────────────────
+const v5ran = db.prepare("SELECT id FROM migrations WHERE name = 'v5_thesis_exit_journal'").get();
+if (!v5ran) {
+  const migrateV5 = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS thesis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker TEXT NOT NULL UNIQUE,
+        bucket TEXT DEFAULT '',
+        "case" TEXT DEFAULT '',
+        right_if TEXT DEFAULT '',
+        wrong_if TEXT DEFAULT '',
+        updated_at TEXT DEFAULT current_timestamp
+      );
+
+      CREATE TABLE IF NOT EXISTS exit_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker TEXT NOT NULL UNIQUE,
+        stop_loss_pct REAL,
+        take_profit_rules TEXT DEFAULT '[]',
+        thesis_break_condition TEXT DEFAULT '',
+        updated_at TEXT DEFAULT current_timestamp
+      );
+
+      CREATE TABLE IF NOT EXISTS journal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticker TEXT,
+        action TEXT NOT NULL,
+        note TEXT DEFAULT '',
+        luck_or_skill TEXT,
+        rule_followed INTEGER DEFAULT 1,
+        unplanned INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT current_timestamp
+      );
+    `);
+    db.prepare("INSERT INTO migrations (name) VALUES ('v5_thesis_exit_journal')").run();
+  });
+  migrateV5();
+  console.log('Migration v5: thesis, exit_rules, and journal tables created.');
+}
+
 export default db;

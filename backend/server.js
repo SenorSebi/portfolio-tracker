@@ -65,6 +65,15 @@ app.get('/api/portfolio', async (req, res) => {
       const positions = db.prepare('SELECT * FROM positions WHERE sector_id = ?').all(sector.id);
       for (const position of positions) {
         position.dca_zones = db.prepare('SELECT * FROM dca_zones WHERE position_id = ? ORDER BY price_eur DESC').all(position.id);
+        const thesis = db.prepare('SELECT * FROM thesis WHERE ticker = ?').get(position.ticker);
+        position.thesis = thesis || null;
+        const er = db.prepare('SELECT * FROM exit_rules WHERE ticker = ?').get(position.ticker);
+        if (er) {
+          er.take_profit_rules = JSON.parse(er.take_profit_rules || '[]');
+          position.exit_rules = er;
+        } else {
+          position.exit_rules = null;
+        }
       }
       sector.positions = positions;
     }
@@ -285,6 +294,108 @@ app.get('/api/sectors', (req, res) => {
     res.json(sectors);
   } catch (err) {
     console.error('GET /api/sectors error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/thesis/:ticker ─────────────────────────────────────────────────
+app.get('/api/thesis/:ticker', (req, res) => {
+  try {
+    const ticker = req.params.ticker.toUpperCase();
+    const thesis = db.prepare('SELECT * FROM thesis WHERE ticker = ?').get(ticker);
+    res.json(thesis || { ticker, bucket: '', case: '', right_if: '', wrong_if: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PUT /api/thesis/:ticker ─────────────────────────────────────────────────
+app.put('/api/thesis/:ticker', (req, res) => {
+  try {
+    const ticker = req.params.ticker.toUpperCase();
+    const { bucket, case: investCase, right_if, wrong_if } = req.body;
+    const existing = db.prepare('SELECT id FROM thesis WHERE ticker = ?').get(ticker);
+    if (existing) {
+      db.prepare('UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?, updated_at=current_timestamp WHERE ticker=?')
+        .run(bucket || '', investCase || '', right_if || '', wrong_if || '', ticker);
+    } else {
+      db.prepare('INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if) VALUES (?, ?, ?, ?, ?)')
+        .run(ticker, bucket || '', investCase || '', right_if || '', wrong_if || '');
+    }
+    res.json(db.prepare('SELECT * FROM thesis WHERE ticker = ?').get(ticker));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/exit-rules/:ticker ─────────────────────────────────────────────
+app.get('/api/exit-rules/:ticker', (req, res) => {
+  try {
+    const ticker = req.params.ticker.toUpperCase();
+    const er = db.prepare('SELECT * FROM exit_rules WHERE ticker = ?').get(ticker);
+    if (er) {
+      er.take_profit_rules = JSON.parse(er.take_profit_rules || '[]');
+      res.json(er);
+    } else {
+      res.json({ ticker, stop_loss_pct: null, take_profit_rules: [], thesis_break_condition: '' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PUT /api/exit-rules/:ticker ─────────────────────────────────────────────
+app.put('/api/exit-rules/:ticker', (req, res) => {
+  try {
+    const ticker = req.params.ticker.toUpperCase();
+    const { stop_loss_pct, take_profit_rules, thesis_break_condition } = req.body;
+    const rulesJson = JSON.stringify(Array.isArray(take_profit_rules) ? take_profit_rules : []);
+    const existing = db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get(ticker);
+    if (existing) {
+      db.prepare('UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?, updated_at=current_timestamp WHERE ticker=?')
+        .run(stop_loss_pct ?? null, rulesJson, thesis_break_condition || '', ticker);
+    } else {
+      db.prepare('INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition) VALUES (?, ?, ?, ?)')
+        .run(ticker, stop_loss_pct ?? null, rulesJson, thesis_break_condition || '');
+    }
+    const er = db.prepare('SELECT * FROM exit_rules WHERE ticker = ?').get(ticker);
+    er.take_profit_rules = JSON.parse(er.take_profit_rules || '[]');
+    res.json(er);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/journal ────────────────────────────────────────────────────────
+app.get('/api/journal', (req, res) => {
+  try {
+    const ticker = req.query.ticker;
+    const entries = ticker
+      ? db.prepare('SELECT * FROM journal WHERE ticker = ? ORDER BY created_at DESC').all(ticker.toUpperCase())
+      : db.prepare('SELECT * FROM journal ORDER BY created_at DESC').all();
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/journal ───────────────────────────────────────────────────────
+app.post('/api/journal', (req, res) => {
+  try {
+    const { ticker, action, note, luck_or_skill, rule_followed, unplanned } = req.body;
+    if (!action) return res.status(400).json({ error: 'action is required' });
+    const result = db.prepare(
+      'INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(
+      ticker ? ticker.toUpperCase() : null,
+      action,
+      note || '',
+      luck_or_skill || null,
+      rule_followed !== false ? 1 : 0,
+      unplanned ? 1 : 0
+    );
+    res.status(201).json(db.prepare('SELECT * FROM journal WHERE id = ?').get(result.lastInsertRowid));
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
