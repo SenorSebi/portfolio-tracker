@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import axios from 'axios'
-import { Position, PriceData, Sector } from '../types'
+import { Position, PriceData, Sector, Thesis, ExitRules, Alert } from '../types'
 import AddPositionModal from './AddPositionModal'
 import TradeLogModal from './TradeLogModal'
+import ThesisPanel from './ThesisPanel'
+import ExitPanel from './ExitPanel'
 
 interface PositionCardProps {
   position: Position
@@ -10,6 +12,7 @@ interface PositionCardProps {
   eurUsdRate: number
   onRefresh: () => void
   sectors: Sector[]
+  alerts: Alert[]
 }
 
 function fmt(value: number): string {
@@ -26,13 +29,15 @@ export default function PositionCard({
   eurUsdRate,
   onRefresh,
   sectors,
+  alerts,
 }: PositionCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showTradeModal, setShowTradeModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [thesis, setThesis] = useState<Thesis | null>(position.thesis)
+  const [exitRules, setExitRules] = useState<ExitRules | null>(position.exit_rules)
 
-  // Price calculations
   const priceEur = priceData && priceData.priceUsd > 0 ? priceData.priceUsd / eurUsdRate : null
   const priceUsd = priceData && priceData.priceUsd > 0 ? priceData.priceUsd : null
   const changePercent = priceData ? priceData.changePercent : null
@@ -47,7 +52,8 @@ export default function PositionCard({
       ? Math.min((currentValue / position.target_size_eur) * 100, 100)
       : 0
 
-  // Status badge
+  const hasActiveAlert = alerts.some(a => a.ticker === position.ticker)
+
   const isWatchlist = position.position_type === 'Watchlist' || position.shares === 0
   let statusLabel = ''
   let statusClass = ''
@@ -114,6 +120,11 @@ export default function PositionCard({
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${positionTypeBadge}`}>
                   {position.position_type}
                 </span>
+                {hasActiveAlert && (
+                  <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 animate-pulse">
+                    ALERT
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 truncate mt-0.5">{position.company_name}</p>
             </div>
@@ -247,6 +258,22 @@ export default function PositionCard({
           </div>
         )}
 
+        {/* Thesis Panel */}
+        <ThesisPanel
+          ticker={position.ticker}
+          thesis={thesis}
+          onUpdate={setThesis}
+        />
+
+        {/* Exit Panel */}
+        <ExitPanel
+          ticker={position.ticker}
+          exitRules={exitRules}
+          avgCostEur={position.avg_cost_eur}
+          priceEur={priceEur}
+          onUpdate={setExitRules}
+        />
+
         {/* Actions */}
         <div className="p-4 pt-3 mt-auto flex items-center gap-2">
           <button
@@ -292,7 +319,6 @@ export default function PositionCard({
         </div>
       </div>
 
-      {/* Edit Modal */}
       {showEditModal && (
         <AddPositionModal
           sectors={sectors}
@@ -318,10 +344,10 @@ export default function PositionCard({
         />
       )}
 
-      {/* Trade Modal */}
       {showTradeModal && (
         <TradeLogModal
           position={position}
+          hasActiveAlert={hasActiveAlert}
           onClose={() => setShowTradeModal(false)}
           onSave={() => {
             setShowTradeModal(false)
