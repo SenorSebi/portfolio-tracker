@@ -502,4 +502,72 @@ if (!v7ran) {
   console.log('Migration v7: CRSP data seeded.');
 }
 
+// ─── Migration v8: seed SDGR full data ───────────────────────────────────────
+const v8ran = db.prepare("SELECT id FROM migrations WHERE name = 'v8_sdgr_data'").get();
+if (!v8ran) {
+  const migrateV8 = db.transaction(() => {
+    const sdgr = db.prepare('SELECT id FROM positions WHERE ticker = ?').get('SDGR');
+    if (sdgr) {
+      db.prepare(
+        `UPDATE positions SET shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+      ).run(70, 10.70, 1500, 9.10,
+        'AI+Physik-Plattform für Molekülentdeckung. Ajax-Akquisition durch Lilly ($2,3 Mrd.) validiert Plattform. Bunsen AI-Launch Sommer 2026. ACV-Wachstum ist der Kern-KPI. Nächster Check: Q2 Earnings August 2026.',
+        sdgr.id);
+
+      db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(sdgr.id);
+      const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+      insertDca.run(sdgr.id, 10.70, 'Erstposition');
+      insertDca.run(sdgr.id,  8.85, 'Nachkauf 1');
+      insertDca.run(sdgr.id,  7.25, 'Nachkauf 2');
+
+      const existingThesis = db.prepare('SELECT id FROM thesis WHERE ticker = ?').get('SDGR');
+      if (existingThesis) {
+        db.prepare(`UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?,
+          max_weight_pct=?, check_cadence=?, next_check_date=?, last_checked_value=?, last_checked_date=?,
+          updated_at=current_timestamp WHERE ticker=?`)
+          .run('A',
+            'Einzige börsennotierte Plattform für physikbasierte Molekülsimulation + KI. Pharma zahlt für Software, eigene Kandidaten erzielen Milliarden-Exits (Ajax $2,3 Mrd.). Bunsen-Launch und ACV-Wachstum sind 12-Monats-Treiber.',
+            'ACV ≥10% Wachstum drei Quartale, Ajax-Cash-Zufluss, Bunsen erhöht Nutzerbasis, neuer Partnership-Deal ≥$500 Mio.',
+            'ACV unter 8% zwei Quartale, Cash unter $250 Mio. ohne Deal, Bunsen verzögert sich über Q1 2027',
+            8, 'quarterly', '2026-08-05', 'ACV +12% Q1, Drug Discovery +124%, Cash $406 Mio., Ajax $2.3 Mrd. validiert', '2026-06-06',
+            'SDGR');
+      } else {
+        db.prepare(`INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if,
+          max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run('SDGR', 'A',
+            'Einzige börsennotierte Plattform für physikbasierte Molekülsimulation + KI. Pharma zahlt für Software, eigene Kandidaten erzielen Milliarden-Exits (Ajax $2,3 Mrd.). Bunsen-Launch und ACV-Wachstum sind 12-Monats-Treiber.',
+            'ACV ≥10% Wachstum drei Quartale, Ajax-Cash-Zufluss, Bunsen erhöht Nutzerbasis, neuer Partnership-Deal ≥$500 Mio.',
+            'ACV unter 8% zwei Quartale, Cash unter $250 Mio. ohne Deal, Bunsen verzögert sich über Q1 2027',
+            8, 'quarterly', '2026-08-05', 'ACV +12% Q1, Drug Discovery +124%, Cash $406 Mio., Ajax $2.3 Mrd. validiert', '2026-06-06');
+      }
+
+      const tpRules = JSON.stringify([
+        { targetPct: 50,  sharesToSell: 25, label: 'Stop auf Einstand nachziehen' },
+        { targetPct: 100, sharesToSell: 25, label: 'Trailing-Stop aktivieren' },
+      ]);
+      const existingEr = db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get('SDGR');
+      if (existingEr) {
+        db.prepare(`UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?,
+          trailing_stop_pct=?, updated_at=current_timestamp WHERE ticker=?`)
+          .run(15, tpRules, 'ACV unter 8% für zwei Quartale UND kein neuer Partnership-Deal', 20, 'SDGR');
+      } else {
+        db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+          VALUES (?, ?, ?, ?, ?)`)
+          .run('SDGR', 15, tpRules, 'ACV unter 8% für zwei Quartale UND kein neuer Partnership-Deal', 20);
+      }
+
+      db.prepare(`INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned)
+        VALUES (?, ?, ?, ?, ?, ?)`)
+        .run('SDGR', 'buy',
+          'Erstposition nach Thesenanalyse. Einzige physikbasierte Simulationsplattform börsennotiert. Ajax-Exit ($2,3 Mrd.) validiert Technologie. Bunsen-Launch + ACV-Wachstum als 12-Monats-Katalysatoren. Bucket A, max 8% Portfoliogewicht.',
+          'skill', 1, 0);
+    }
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v8_sdgr_data')").run();
+  });
+  migrateV8();
+  console.log('Migration v8: SDGR data seeded.');
+}
+
 export default db;
