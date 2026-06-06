@@ -346,4 +346,93 @@ if (!v5ran) {
   console.log('Migration v5: thesis, exit_rules, and journal tables created.');
 }
 
+// ─── Migration v6: extend thesis/exit_rules + seed BNTX data ─────────────────
+const v6ran = db.prepare("SELECT id FROM migrations WHERE name = 'v6_thesis_columns_bntx'").get();
+if (!v6ran) {
+  const migrateV6 = db.transaction(() => {
+    // Extend thesis table with thesisCheck fields + max weight
+    for (const col of [
+      'ALTER TABLE thesis ADD COLUMN max_weight_pct REAL',
+      'ALTER TABLE thesis ADD COLUMN check_cadence TEXT DEFAULT \'\'',
+      'ALTER TABLE thesis ADD COLUMN next_check_date TEXT DEFAULT \'\'',
+      'ALTER TABLE thesis ADD COLUMN last_checked_value TEXT DEFAULT \'\'',
+      'ALTER TABLE thesis ADD COLUMN last_checked_date TEXT DEFAULT \'\'',
+    ]) {
+      try { db.exec(col); } catch (_) { /* column already exists */ }
+    }
+
+    // Extend exit_rules table with trailing stop
+    try {
+      db.exec('ALTER TABLE exit_rules ADD COLUMN trailing_stop_pct REAL');
+    } catch (_) { /* column already exists */ }
+
+    // ── Seed BNTX position data ──────────────────────────────────────────────
+    const bntx = db.prepare('SELECT id FROM positions WHERE ticker = ?').get('BNTX');
+    if (bntx) {
+      db.prepare(
+        `UPDATE positions SET shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+      ).run(25, 79.50, 5000, 67.57,
+        'Cash > Market Cap. Pumitamig BMS-Deal $3,5 Mrd. upfront. Pivot von Impfstoff zu Onkologie. Nächster Check: Q2 Earnings August 2026.',
+        bntx.id);
+
+      // Replace DCA zones
+      db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(bntx.id);
+      const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+      insertDca.run(bntx.id, 79.50, 'Erstposition');
+      insertDca.run(bntx.id, 69.00, 'Nachkauf 1');
+      insertDca.run(bntx.id, 59.00, 'Nachkauf 2');
+
+      // Thesis
+      const existingThesis = db.prepare('SELECT id FROM thesis WHERE ticker = ?').get('BNTX');
+      if (existingThesis) {
+        db.prepare(`UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?,
+          max_weight_pct=?, check_cadence=?, next_check_date=?, last_checked_value=?, last_checked_date=?,
+          updated_at=current_timestamp WHERE ticker=?`)
+          .run('A',
+            'BioNTech ist eine Cash-reiche Onkologie-Company die der Markt noch als Impfstoffunternehmen bewertet. €16,8 Mrd. Cash > aktuelle Market Cap. Pumitamig-BMS-Deal rechtfertigt Neubewertung.',
+            'Pumitamig erste Zulassung bis 2028, COVID-Umsätze stabil bei €1,5+ Mrd., Buyback messbar',
+            'Cash unter €10 Mrd. ohne Pipeline-Erfolg, Pumitamig Phase-3-Failure, Umsatz unter €1,5 Mrd.',
+            15, 'quarterly', '2026-08-01', '€16,8 Mrd. Cash, 5 pivotale Studien laufen', '2026-06-06',
+            'BNTX');
+      } else {
+        db.prepare(`INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if,
+          max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run('BNTX', 'A',
+            'BioNTech ist eine Cash-reiche Onkologie-Company die der Markt noch als Impfstoffunternehmen bewertet. €16,8 Mrd. Cash > aktuelle Market Cap. Pumitamig-BMS-Deal rechtfertigt Neubewertung.',
+            'Pumitamig erste Zulassung bis 2028, COVID-Umsätze stabil bei €1,5+ Mrd., Buyback messbar',
+            'Cash unter €10 Mrd. ohne Pipeline-Erfolg, Pumitamig Phase-3-Failure, Umsatz unter €1,5 Mrd.',
+            15, 'quarterly', '2026-08-01', '€16,8 Mrd. Cash, 5 pivotale Studien laufen', '2026-06-06');
+      }
+
+      // Exit rules
+      const tpRules = JSON.stringify([
+        { targetPct: 50,  sharesToSell: 25, label: 'Stop auf Einstand nachziehen' },
+        { targetPct: 100, sharesToSell: 25, label: 'Trailing-Stop aktivieren' },
+      ]);
+      const existingEr = db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get('BNTX');
+      if (existingEr) {
+        db.prepare(`UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?,
+          trailing_stop_pct=?, updated_at=current_timestamp WHERE ticker=?`)
+          .run(15, tpRules, 'Cash unter €12 Mrd. UND kein Phase-3-Erfolg', 20, 'BNTX');
+      } else {
+        db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+          VALUES (?, ?, ?, ?, ?)`)
+          .run('BNTX', 15, tpRules, 'Cash unter €12 Mrd. UND kein Phase-3-Erfolg', 20);
+      }
+
+      // Journal entry: initial skill buy
+      db.prepare(`INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned)
+        VALUES (?, ?, ?, ?, ?, ?)`)
+        .run('BNTX', 'buy',
+          'Erstposition nach vollständiger Thesenanalyse. Cash > Market Cap, Pumitamig-BMS-Deal als Neubewertungskatalysator. Bucket A, max 15% Portfoliogewicht.',
+          'skill', 1, 0);
+    }
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v6_thesis_columns_bntx')").run();
+  });
+  migrateV6();
+  console.log('Migration v6: thesis/exit_rules extended, BNTX data seeded.');
+}
+
 export default db;

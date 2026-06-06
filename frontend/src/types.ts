@@ -11,6 +11,11 @@ export interface Thesis {
   case: string;
   right_if: string;
   wrong_if: string;
+  max_weight_pct?: number | null;
+  check_cadence?: string;
+  next_check_date?: string;
+  last_checked_value?: string;
+  last_checked_date?: string;
   updated_at?: string;
 }
 
@@ -26,6 +31,7 @@ export interface ExitRules {
   stop_loss_pct: number | null;
   take_profit_rules: TakeProfitRule[];
   thesis_break_condition: string;
+  trailing_stop_pct?: number | null;
   updated_at?: string;
 }
 

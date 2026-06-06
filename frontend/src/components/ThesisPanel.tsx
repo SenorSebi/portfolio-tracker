@@ -19,6 +19,11 @@ export default function ThesisPanel({ ticker, thesis, onUpdate }: ThesisPanelPro
     case: thesis?.case || '',
     right_if: thesis?.right_if || '',
     wrong_if: thesis?.wrong_if || '',
+    max_weight_pct: thesis?.max_weight_pct ?? null,
+    check_cadence: thesis?.check_cadence || '',
+    next_check_date: thesis?.next_check_date || '',
+    last_checked_value: thesis?.last_checked_value || '',
+    last_checked_date: thesis?.last_checked_date || '',
   })
 
   const isEmpty = !thesis || (!thesis.case && !thesis.right_if && !thesis.wrong_if)
@@ -29,6 +34,11 @@ export default function ThesisPanel({ ticker, thesis, onUpdate }: ThesisPanelPro
       case: thesis?.case || '',
       right_if: thesis?.right_if || '',
       wrong_if: thesis?.wrong_if || '',
+      max_weight_pct: thesis?.max_weight_pct ?? null,
+      check_cadence: thesis?.check_cadence || '',
+      next_check_date: thesis?.next_check_date || '',
+      last_checked_value: thesis?.last_checked_value || '',
+      last_checked_date: thesis?.last_checked_date || '',
     })
     setEditing(true)
     setOpen(true)
@@ -135,6 +145,62 @@ export default function ThesisPanel({ ticker, thesis, onUpdate }: ThesisPanelPro
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent resize-none"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Max. Gewicht (%)</label>
+                  <input
+                    type="number" min="0" max="100" step="1"
+                    value={form.max_weight_pct ?? ''}
+                    onChange={e => setForm(f => ({ ...f, max_weight_pct: e.target.value ? parseFloat(e.target.value) : null }))}
+                    placeholder="z.B. 15"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Turnus</label>
+                  <select
+                    value={form.check_cadence}
+                    onChange={e => setForm(f => ({ ...f, check_cadence: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/30 bg-white"
+                  >
+                    <option value="">—</option>
+                    <option value="monthly">Monatlich</option>
+                    <option value="quarterly">Quartalsweise</option>
+                    <option value="biannual">Halbjährlich</option>
+                    <option value="annual">Jährlich</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nächster Check</label>
+                  <input
+                    type="date"
+                    value={form.next_check_date || ''}
+                    onChange={e => setForm(f => ({ ...f, next_check_date: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Letzter Check</label>
+                  <input
+                    type="date"
+                    value={form.last_checked_date || ''}
+                    onChange={e => setForm(f => ({ ...f, last_checked_date: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Letzter Messwert</label>
+                <input
+                  type="text"
+                  value={form.last_checked_value || ''}
+                  onChange={e => setForm(f => ({ ...f, last_checked_value: e.target.value }))}
+                  placeholder="z.B. €16,8 Mrd. Cash, 5 pivotale Studien"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/30"
+                />
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
@@ -170,6 +236,24 @@ export default function ThesisPanel({ ticker, thesis, onUpdate }: ThesisPanelPro
                   <p className="text-xs text-red-600 font-medium uppercase tracking-wide mb-0.5">These falsch, wenn…</p>
                   <p className="text-xs text-gray-700 leading-relaxed">{thesis.wrong_if}</p>
                 </div>
+              )}
+              {(thesis?.next_check_date || thesis?.last_checked_value) && (
+                <div className="mt-1 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                  {thesis?.last_checked_value && (
+                    <p className="text-xs text-gray-600">
+                      <span className="text-gray-400">Zuletzt ({thesis.last_checked_date || '—'}):</span> {thesis.last_checked_value}
+                    </p>
+                  )}
+                  {thesis?.next_check_date && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Nächster Check: {thesis.next_check_date}
+                      {thesis.check_cadence && <span className="ml-1">({thesis.check_cadence})</span>}
+                    </p>
+                  )}
+                </div>
+              )}
+              {thesis?.max_weight_pct && (
+                <p className="text-xs text-gray-400">Max. Portfoliogewicht: <span className="font-semibold text-gray-600">{thesis.max_weight_pct}%</span></p>
               )}
               <button
                 onClick={startEdit}
