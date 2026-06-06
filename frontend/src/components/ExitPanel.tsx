@@ -21,6 +21,7 @@ export default function ExitPanel({ ticker, exitRules, avgCostEur, priceEur, onU
   const [stopPct, setStopPct] = useState<string>(exitRules?.stop_loss_pct?.toString() || '')
   const [thesisBreak, setThesisBreak] = useState(exitRules?.thesis_break_condition || '')
   const [rules, setRules] = useState<TakeProfitRule[]>(exitRules?.take_profit_rules || [])
+  const [trailingStopPct, setTrailingStopPct] = useState<string>(exitRules?.trailing_stop_pct?.toString() || '')
 
   const hasRules = exitRules && (exitRules.stop_loss_pct !== null || exitRules.take_profit_rules.length > 0)
 
@@ -33,6 +34,7 @@ export default function ExitPanel({ ticker, exitRules, avgCostEur, priceEur, onU
     setStopPct(exitRules?.stop_loss_pct?.toString() || '')
     setThesisBreak(exitRules?.thesis_break_condition || '')
     setRules(exitRules?.take_profit_rules ? [...exitRules.take_profit_rules] : [])
+    setTrailingStopPct(exitRules?.trailing_stop_pct?.toString() || '')
     setEditing(true)
     setOpen(true)
   }
@@ -50,6 +52,7 @@ export default function ExitPanel({ ticker, exitRules, avgCostEur, priceEur, onU
         stop_loss_pct: stopPct ? parseFloat(stopPct) : null,
         take_profit_rules: rules,
         thesis_break_condition: thesisBreak,
+        trailing_stop_pct: trailingStopPct ? parseFloat(trailingStopPct) : null,
       }
       const { data } = await axios.put<ExitRules>(`/api/exit-rules/${ticker}`, payload)
       onUpdate(data)
@@ -144,6 +147,17 @@ export default function ExitPanel({ ticker, exitRules, avgCostEur, priceEur, onU
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Trailing-Stop (%)</label>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={trailingStopPct}
+                  onChange={e => setTrailingStopPct(e.target.value)}
+                  placeholder="z.B. 20"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Thesenbruch-Bedingung</label>
                 <textarea
                   rows={2}
@@ -211,6 +225,13 @@ export default function ExitPanel({ ticker, exitRules, avgCostEur, priceEur, onU
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {exitRules?.trailing_stop_pct && (
+                <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-gray-50 border border-gray-200">
+                  <span className="text-xs font-semibold text-gray-700">Trailing-Stop</span>
+                  <span className="text-xs font-bold text-gray-600">{exitRules.trailing_stop_pct}%</span>
                 </div>
               )}
 

@@ -314,13 +314,24 @@ app.put('/api/thesis/:ticker', (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase();
     const { bucket, case: investCase, right_if, wrong_if } = req.body;
+    const {
+      max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date,
+    } = req.body;
     const existing = db.prepare('SELECT id FROM thesis WHERE ticker = ?').get(ticker);
     if (existing) {
-      db.prepare('UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?, updated_at=current_timestamp WHERE ticker=?')
-        .run(bucket || '', investCase || '', right_if || '', wrong_if || '', ticker);
+      db.prepare(`UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?,
+        max_weight_pct=?, check_cadence=?, next_check_date=?, last_checked_value=?, last_checked_date=?,
+        updated_at=current_timestamp WHERE ticker=?`)
+        .run(bucket || '', investCase || '', right_if || '', wrong_if || '',
+          max_weight_pct ?? null, check_cadence || '', next_check_date || '',
+          last_checked_value || '', last_checked_date || '', ticker);
     } else {
-      db.prepare('INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if) VALUES (?, ?, ?, ?, ?)')
-        .run(ticker, bucket || '', investCase || '', right_if || '', wrong_if || '');
+      db.prepare(`INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if,
+        max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(ticker, bucket || '', investCase || '', right_if || '', wrong_if || '',
+          max_weight_pct ?? null, check_cadence || '', next_check_date || '',
+          last_checked_value || '', last_checked_date || '');
     }
     res.json(db.prepare('SELECT * FROM thesis WHERE ticker = ?').get(ticker));
   } catch (err) {
@@ -348,15 +359,17 @@ app.get('/api/exit-rules/:ticker', (req, res) => {
 app.put('/api/exit-rules/:ticker', (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase();
-    const { stop_loss_pct, take_profit_rules, thesis_break_condition } = req.body;
+    const { stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct } = req.body;
     const rulesJson = JSON.stringify(Array.isArray(take_profit_rules) ? take_profit_rules : []);
     const existing = db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get(ticker);
     if (existing) {
-      db.prepare('UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?, updated_at=current_timestamp WHERE ticker=?')
-        .run(stop_loss_pct ?? null, rulesJson, thesis_break_condition || '', ticker);
+      db.prepare(`UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?,
+        trailing_stop_pct=?, updated_at=current_timestamp WHERE ticker=?`)
+        .run(stop_loss_pct ?? null, rulesJson, thesis_break_condition || '', trailing_stop_pct ?? null, ticker);
     } else {
-      db.prepare('INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition) VALUES (?, ?, ?, ?)')
-        .run(ticker, stop_loss_pct ?? null, rulesJson, thesis_break_condition || '');
+      db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+        VALUES (?, ?, ?, ?, ?)`)
+        .run(ticker, stop_loss_pct ?? null, rulesJson, thesis_break_condition || '', trailing_stop_pct ?? null);
     }
     const er = db.prepare('SELECT * FROM exit_rules WHERE ticker = ?').get(ticker);
     er.take_profit_rules = JSON.parse(er.take_profit_rules || '[]');
