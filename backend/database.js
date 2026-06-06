@@ -435,4 +435,71 @@ if (!v6ran) {
   console.log('Migration v6: thesis/exit_rules extended, BNTX data seeded.');
 }
 
+// ─── Migration v7: seed CRSP full data ───────────────────────────────────────
+const v7ran = db.prepare("SELECT id FROM migrations WHERE name = 'v7_crsp_data'").get();
+if (!v7ran) {
+  const migrateV7 = db.transaction(() => {
+    const crsp = db.prepare('SELECT id FROM positions WHERE ticker = ?').get('CRSP');
+    if (crsp) {
+      db.prepare(
+        `UPDATE positions SET shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+      ).run(42, 46.20, 3500, 39.27,
+        'Einziges zugelassenes CRISPR-Produkt (Casgevy). CTX310 Kardio-Daten H2 2026 als Neubewertungs-Katalysator. Cash $2,44 Mrd. Nächster Check: Q2 Earnings August 2026.',
+        crsp.id);
+
+      db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(crsp.id);
+      const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+      insertDca.run(crsp.id, 46.20, 'Erstposition');
+      insertDca.run(crsp.id, 40.50, 'Nachkauf 1');
+      insertDca.run(crsp.id, 34.00, 'Nachkauf 2');
+
+      const existingThesis = db.prepare('SELECT id FROM thesis WHERE ticker = ?').get('CRSP');
+      if (existingThesis) {
+        db.prepare(`UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?,
+          max_weight_pct=?, check_cadence=?, next_check_date=?, last_checked_value=?, last_checked_date=?,
+          updated_at=current_timestamp WHERE ticker=?`)
+          .run('A',
+            'CRSP ist das einzige Gen-Editing-Unternehmen mit zugelassenem Produkt und wachsendem Revenue. Casgevy-Ramp + breite In-vivo-Pipeline (CTX310 Kardio) rechtfertigen Neubewertung auf 3-5 Jahre.',
+            'Casgevy über $200 Mio./Jahr bis 2027, CTX310 konsistente Phase-1b-Daten, Cash über $1,5 Mrd.',
+            'Casgevy unter $30 Mio./Quartal für 2 Quartale, CTX310 Safety-Signal, Cash unter $1 Mrd.',
+            12, 'quarterly', '2026-08-01', 'Casgevy $43 Mio. Q1, >500 Patienten, CTX310 US IND-Clearance', '2026-06-06', 'CRSP');
+      } else {
+        db.prepare(`INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if,
+          max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run('CRSP', 'A',
+            'CRSP ist das einzige Gen-Editing-Unternehmen mit zugelassenem Produkt und wachsendem Revenue. Casgevy-Ramp + breite In-vivo-Pipeline (CTX310 Kardio) rechtfertigen Neubewertung auf 3-5 Jahre.',
+            'Casgevy über $200 Mio./Jahr bis 2027, CTX310 konsistente Phase-1b-Daten, Cash über $1,5 Mrd.',
+            'Casgevy unter $30 Mio./Quartal für 2 Quartale, CTX310 Safety-Signal, Cash unter $1 Mrd.',
+            12, 'quarterly', '2026-08-01', 'Casgevy $43 Mio. Q1, >500 Patienten, CTX310 US IND-Clearance', '2026-06-06');
+      }
+
+      const tpRules = JSON.stringify([
+        { targetPct: 50,  sharesToSell: 25, label: 'Stop auf Einstand nachziehen' },
+        { targetPct: 100, sharesToSell: 25, label: 'Trailing-Stop aktivieren' },
+      ]);
+      const existingEr = db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get('CRSP');
+      if (existingEr) {
+        db.prepare(`UPDATE exit_rules SET stop_loss_pct=?, take_profit_rules=?, thesis_break_condition=?,
+          trailing_stop_pct=?, updated_at=current_timestamp WHERE ticker=?`)
+          .run(15, tpRules, 'Casgevy unter $30 Mio./Quartal für 2 Quartale UND kein CTX310-Fortschritt', 20, 'CRSP');
+      } else {
+        db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+          VALUES (?, ?, ?, ?, ?)`)
+          .run('CRSP', 15, tpRules, 'Casgevy unter $30 Mio./Quartal für 2 Quartale UND kein CTX310-Fortschritt', 20);
+      }
+
+      db.prepare(`INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned)
+        VALUES (?, ?, ?, ?, ?, ?)`)
+        .run('CRSP', 'buy',
+          'Erstposition nach Thesenanalyse. Einziges CRISPR-Unternehmen mit zugelassenem Produkt (Casgevy). CTX310 Kardio-Pipeline als Neubewertungskatalysator H2 2026. Bucket A, max 12% Portfoliogewicht.',
+          'skill', 1, 0);
+    }
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v7_crsp_data')").run();
+  });
+  migrateV7();
+  console.log('Migration v7: CRSP data seeded.');
+}
+
 export default db;
