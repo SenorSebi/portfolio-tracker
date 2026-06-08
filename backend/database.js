@@ -595,4 +595,28 @@ if (!v9ran) {
   console.log('Migration v9: ZS position updated.');
 }
 
+// ─── Migration v10: update FTNT position data ────────────────────────────────
+const v10ran = db.prepare("SELECT id FROM migrations WHERE name = 'v10_ftnt_data'").get();
+if (!v10ran) {
+  const migrateV10 = db.transaction(() => {
+    const ftnt = db.prepare('SELECT id FROM positions WHERE ticker = ?').get('FTNT');
+    if (ftnt) {
+      db.prepare(
+        `UPDATE positions SET position_type=?, shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+      ).run('Watchlist', 0, 0, 160, 91,
+        'Profitabelster Sektor-Wert: GAAP Nettomarge 27,5%, FCF $1,81 Mrd. TTM, Revenue $7,11 Mrd. Derzeit am ATH (~$145) nach Verdoppelung seit März 2026 – kein Einstieg jetzt. Alert bei €115 ($134) für Erstposition nach Q2-Earnings-Rücksetzer. Nächste Earnings: 30. Juli 2026.',
+        ftnt.id);
+
+      db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(ftnt.id);
+      const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+      insertDca.run(ftnt.id, 112, 'Erstposition');
+      insertDca.run(ftnt.id,  96, 'Nachkauf 1');
+      insertDca.run(ftnt.id,  80, 'Nachkauf 2');
+    }
+    db.prepare("INSERT INTO migrations (name) VALUES ('v10_ftnt_data')").run();
+  });
+  migrateV10();
+  console.log('Migration v10: FTNT position updated.');
+}
+
 export default db;
