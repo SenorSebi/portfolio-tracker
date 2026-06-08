@@ -571,4 +571,28 @@ if (!v8ran) {
   console.log('Migration v8: SDGR data seeded.');
 }
 
+// ─── Migration v9: update ZS position data ───────────────────────────────────
+const v9ran = db.prepare("SELECT id FROM migrations WHERE name = 'v9_zs_data'").get();
+if (!v9ran) {
+  const migrateV9 = db.transaction(() => {
+    const zs = db.prepare('SELECT id FROM positions WHERE ticker = ?').get('ZS');
+    if (zs) {
+      db.prepare(
+        `UPDATE positions SET shares=?, avg_cost_eur=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`
+      ).run(0, 0, 190, 80,
+        'Q3 fundamental stark (EPS +6,9% Beat, Revenue +25%), aber vorsichtige Q4-Guidance + Verlust von 2 Sales-Führungskräften → −31% Einbruch. Thesis intakt, Execution-Risiko kurzfristig erhöht. Erstposition jetzt aktiv. Stop-Loss weit bei €80 wegen Earnings-Volatilität. Nächster Check: Q4 FY26 Earnings ~Aug/Sep 2026 auf Revenue-Wachstum ≥18%.',
+        zs.id);
+
+      db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(zs.id);
+      const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+      insertDca.run(zs.id, 105, 'Erstposition');
+      insertDca.run(zs.id,  89, 'Nachkauf 1');
+      insertDca.run(zs.id,  74, 'Nachkauf 2');
+    }
+    db.prepare("INSERT INTO migrations (name) VALUES ('v9_zs_data')").run();
+  });
+  migrateV9();
+  console.log('Migration v9: ZS position updated.');
+}
+
 export default db;
