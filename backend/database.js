@@ -619,4 +619,120 @@ if (!v10ran) {
   console.log('Migration v10: FTNT position updated.');
 }
 
+// ─── Migration v11: MedTech / Healthcare sector + 7 positions ────────────────
+const v11ran = db.prepare("SELECT id FROM migrations WHERE name = 'v11_medtech_sector'").get();
+if (!v11ran) {
+  const migrateV11 = db.transaction(() => {
+    const sector = db.prepare('INSERT INTO sectors (name, description, order_index) VALUES (?, ?, ?)').run('MedTech / Healthcare', '', 7);
+    const sid = sector.lastInsertRowid;
+
+    const insertPosition = db.prepare(
+      `INSERT INTO positions (sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+    const insertThesis = db.prepare(`INSERT INTO thesis (ticker, bucket, "case", right_if, wrong_if,
+      max_weight_pct, check_cadence, next_check_date, last_checked_value, last_checked_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insertEr = db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+      VALUES (?, ?, ?, ?, ?)`);
+
+    const standardTp = JSON.stringify([
+      { targetPct: 50,  sharesToSell: 25, label: 'Breakeven-Stop setzen' },
+      { targetPct: 100, sharesToSell: 25, label: 'Trailing-Stop 20% aktivieren' },
+    ]);
+
+    // ABT — Abbott Laboratories
+    const abt = insertPosition.run(sid, 'ABT', 'Abbott Laboratories', 'Core', 0, 0, 3000, null,
+      'Größte Sektorposition (Entscheidung 10.06.2026): solidestes Geschäftsmodell, Dividenden-Aristokrat (~2,8%), CGM-Runway + Exact-Krebsdiagnostik. Risiken bewusst als moderat eingestuft -> mehr Kapital, Stop-Ereignis unverändert scharf. Zonen in USD (NYSE-Referenz).');
+    insertDca.run(abt.lastInsertRowid, 75, 'Erstposition ($87 · Tranche €1.200)');
+    insertDca.run(abt.lastInsertRowid, 68, 'Nachkauf 1 ($78 · Tranche €1.050)');
+    insertDca.run(abt.lastInsertRowid, 60, 'Nachkauf 2 ($69 · Tranche €750)');
+    insertThesis.run('ABT', 'A',
+      'Defensiver Compounder mit CGM-Runway (70-80 Mio. Kandidaten, 10-12 Mio. penetriert) und Exact-Sciences-Einstieg in Krebsdiagnostik; ~16x Forward historisch günstig.',
+      'CGM zurück zu zweistelligem Wachstum ab Q2 2026, FY-Guidance 6,5-7,5% hält, Dividende steigt weiter',
+      'CGM-Sättigung bestätigt (2 Quartale <5%), Exact verwässert >0,30 USD EPS',
+      5, 'quarterly', '2026-07-16', 'Q1/26: +3,7% vergleichbar, CGM +7,6% vergleichbar; Guidance bestätigt', '2026-06-10');
+    insertEr.run('ABT', null, standardTp,
+      'STOP-EVENT: Vergleichbares Wachstum <4% UND CGM <5%, zwei Quartale in Folge (Quelle: 8-K/10-Q). Pre-Buy-Thesischeck erforderlich.', 20);
+
+    // TMO — Thermo Fisher Scientific
+    const tmo = insertPosition.run(sid, 'TMO', 'Thermo Fisher Scientific', 'Core', 0, 0, 2500, null,
+      'Picks-and-Shovels der Biopharma-Forschung; Hebel auf Sektor-3-These. Alert bei 465 USD. Zonen in USD (NYSE-Referenz).');
+    insertDca.run(tmo.lastInsertRowid, 390, 'Erstposition ($450 · Tranche €1.000)');
+    insertDca.run(tmo.lastInsertRowid, 351, 'Nachkauf 1 ($405 · Tranche €875)');
+    insertDca.run(tmo.lastInsertRowid, 303, 'Nachkauf 2 ($350 · Tranche €625)');
+    insertThesis.run('TMO', 'A',
+      'Tools-Cluster am stärksten abgestraft (-17,2% YTD Q1/26); TMO Marktführer mit Recurring Revenue; profitiert von AI ohne daran zu hängen.',
+      'Organisches Wachstum beschleunigt Richtung 5-7%, Biopharma-R&D steigt',
+      'Strukturell <3% Wachstum durch dauerhafte Pharma-R&D-Kürzungen',
+      5, 'quarterly', '2026-07-25', '', '');
+    insertEr.run('TMO', null, standardTp,
+      'STOP-EVENT: Organisches Wachstum <0% YoY, zwei Quartale in Folge + zweite Primärquelle (DHR Bioprocessing). Quelle: 10-Q TMO + 10-Q DHR. Pre-Buy-Thesischeck erforderlich.', 20);
+
+    // MDT — Medtronic
+    const mdt = insertPosition.run(sid, 'MDT', 'Medtronic plc', 'Core', 0, 0, 1500, null,
+      'Value: 42% unter ATH, ~13,5x Forward FY27, ~3,6% Dividende, MiniMed-Spinoff. These-Check durch Q4 FY26 (03.06.) frisch erledigt -> regelkonform kaufbar in Zone. Zonen in USD (NYSE-Referenz).');
+    insertDca.run(mdt.lastInsertRowid, 67, 'Erstposition ($77 · Tranche €600)');
+    insertDca.run(mdt.lastInsertRowid, 60, 'Nachkauf 1 ($69 · Tranche €525)');
+    insertDca.run(mdt.lastInsertRowid, 53, 'Nachkauf 2 ($61 · Tranche €375)');
+    insertThesis.run('MDT', 'A',
+      'Dekadentief-Bewertung trifft operative Wende (Q4 FY26 +6,6% organisch, stärkstes Quartal seit 10 Jahren, CAS +78%); Diabetes-Spinoff hebt Konzernmarge.',
+      'FY27-Guidance (6,75-7,25% organisch, EPS 5,90-6,00 USD) hält, Spinoff vollzogen',
+      'Wachstum fällt zurück <4% (2 Quartale), CAS-Anteilsgewinne drehen, Spinoff platzt',
+      4, 'quarterly', '2026-08-25', 'Q4 FY26: +6,6% organisch; FY27-Guidance 6,75-7,25%', '2026-06-10');
+    insertEr.run('MDT', null, standardTp,
+      'STOP-EVENT: Organisches Wachstum <4% ODER Spinoff-Abbruch, zwei Quartale in Folge bzw. offizielle Mitteilung (Quelle: 10-Q/8-K). Pre-Buy-Thesischeck erforderlich.', 20);
+
+    // SHL — Siemens Healthineers (eingefroren)
+    const shl = insertPosition.run(sid, 'SHL', 'Siemens Healthineers AG', 'Watchlist', 0, 0, 0, null,
+      'EINGEFROREN per Entscheidung 10.06.2026: Profitabilität muss erst bewiesen werden. Reaktivierungsprüfung nach Q3-FY26-Report (31.07.2026): vergleichbarer Umsatz >= Vorjahr ODER Imaging-Auftragseingang stabilisiert, UND keine weitere Prognosesenkung. Offene Folgefrage: regelkonforme Restkapazität nur EUR 1.000 (20%-Reserve-Regel) -> Größe bei Reaktivierung gemeinsam entscheiden. Zonen in EUR (XETRA).');
+    insertDca.run(shl.lastInsertRowid, 33.50, 'Erstposition (INAKTIV bis Reaktivierung)');
+    insertDca.run(shl.lastInsertRowid, 30.00, 'Nachkauf 1 (INAKTIV)');
+    insertDca.run(shl.lastInsertRowid, 26.00, 'Nachkauf 2 (INAKTIV)');
+    insertThesis.run('SHL', 'Watchlist',
+      'Weltmarktführer Bildgebung mit Service-Burggraben, 31% unter Hoch; Diagnostics-Problem möglicherweise isoliert.',
+      'Q3 FY26 zeigt Umsatzstabilisierung und Guidance hält',
+      'Umsatzschwäche greift auf Imaging über; zweite Prognosesenkung binnen 12 Monaten',
+      4, 'quarterly', '2026-07-31', 'Q2 FY26: -3,9% YoY, Prognose gesenkt 07.05.2026', '2026-06-10');
+
+    // DHR — Danaher
+    const dhr = insertPosition.run(sid, 'DHR', 'Danaher Corp.', 'Watchlist', 0, 0, 0, null,
+      'Ersatzkandidat falls TMO-These bricht; ~22x Forward, 80% These-Überlappung mit TMO. Zonen in USD (NYSE-Referenz).');
+    insertDca.run(dhr.lastInsertRowid, 143, 'Erstcheck-Zone ($165)');
+    insertDca.run(dhr.lastInsertRowid, 121, 'Absoluter Boden ($140)');
+    insertThesis.run('DHR', 'Watchlist',
+      'Serieller Compounder (DBS), Masimo-Deal (9,9 Mrd. USD), Bioprocessing-Erholung (erstes positives Equipment-Orderwachstum seit ~2 Jahren).',
+      'Kernwachstum beschleunigt Richtung 6%+',
+      'Masimo-Integration scheitert, Diagnostics-Erosion hält an',
+      4, 'quarterly', '2026-07-21', 'Q1/26: Biotech +7% Kern, EPS-Guidance angehoben auf 8,35-8,55 USD', '2026-06-10');
+
+    // BSX — Boston Scientific
+    const bsx = insertPosition.run(sid, 'BSX', 'Boston Scientific', 'Watchlist', 0, 0, 0, null,
+      'PRÜFFALL: -55% nach Accolade-Recall, EP-Miss, Sammelklagen; bestes Wachstum der Peer-Group (16,6% p.a.). Hochstufung zu Speculative erst nach 2 sauberen Quartalen (CRM-Anteile stabil). Zonen in USD (NYSE-Referenz).');
+    insertDca.run(bsx.lastInsertRowid, 40, 'Erstcheck-Zone ($46)');
+    insertDca.run(bsx.lastInsertRowid, 32, 'Absoluter Boden ($37)');
+    insertThesis.run('BSX', 'Watchlist',
+      'Wachstumsführer zum Krisenpreis - falls Recall-Schaden temporär.',
+      'CRM-Anteile stabil, EP/Watchman-Wachstum kehrt zurück, keine weiteren Revisionen',
+      'Messbarer Anteilsverlust an ABT/MDT über 2+ Quartale, Klagen eskalieren materiell',
+      3, 'quarterly', '2026-07-23', 'Q4/25: EP-Miss (890 vs. 933 Mio. USD)', '2026-06-10');
+
+    // FME — Fresenius Medical Care
+    const fme = insertPosition.run(sid, 'FME', 'Fresenius Medical Care', 'Watchlist', 0, 0, 0, null,
+      'GLP-1-Tiefenprüfung 10.06.2026: Harte Dialyse-Endpunkte statistisch NICHT signifikant reduziert (Cochrane RR 0,86, CI 0,66-1,13); FLOW-Komposit (-24%) enthält eGFR/Tod; Mortalitätssenkung (-20%) wirkt prävalenzstützend. ABER: US-Same-Market-Treatment-Growth Q1/26 erstmals negativ (-0,4%) - Break-Bedingung steht bei 1 von 2. UPGRADE-TRIGGER (zu Speculative, EUR 500-750 aus Reserve): Q2-Report ~04.08. zeigt US-Treatment-Growth >=0% ODER Management quantifiziert Klinik-Exit-Effekt glaubhaft. Zonen in EUR (XETRA).');
+    insertDca.run(fme.lastInsertRowid, 34, 'Erstcheck-Zone');
+    insertDca.run(fme.lastInsertRowid, 28, 'Absoluter Boden');
+    insertThesis.run('FME', 'Watchlist',
+      'Extrem-Discount (-59% von Hochs) auf reale Kostenwende (FME Reignite: 2025 +27% Ergebnis, FCF Q1 +94%); GLP-1-Strukturangst möglicherweise übertrieben, da harte Dialyse-Endpunkte nicht signifikant und Demografie gegenläufig.',
+      'US-Treatment-Growth dreht zurück >=0% (Q2/Q3 2026), 5008X-Rollout zahlt ab H2 ein, Übergangsjahr-Guidance hält',
+      'US-Same-Market-Treatment-Growth negativ 2 Quartale in Folge ohne belegbaren Klinik-Exit-Effekt (misst GLP-1 UND jede andere Volumenerosion)',
+      3, 'quarterly', '2026-08-04', 'Q1/26: -0,4% (erstmals negativ; 64 Klinik-Exits als möglicher Sondereffekt); EPS +16%, Ausblick bestätigt', '2026-06-10');
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v11_medtech_sector')").run();
+  });
+  migrateV11();
+  console.log('Migration v11: MedTech / Healthcare sector created with 7 positions.');
+}
+
 export default db;
