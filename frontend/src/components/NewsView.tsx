@@ -71,6 +71,7 @@ function Spinner() {
 
 export default function NewsView() {
   const [tab, setTab] = useState<Tab>('positions')
+  const [posSort, setPosSort] = useState<'date' | 'ticker'>('date')
   const [loading, setLoading] = useState(false)
   const [finnhubConfigured, setFinnhubConfigured] = useState(true)
 
@@ -133,6 +134,16 @@ export default function NewsView() {
     )
   }
 
+  // Merge all per-ticker news into one chronological stream (newest first).
+  const flattenPositions = (groups: Record<string, NewsItem[]> | null): NewsItem[] => {
+    if (!groups) return []
+    const all: NewsItem[] = []
+    for (const key of Object.keys(groups)) {
+      for (const item of groups[key]) all.push({ ...item, ticker: item.ticker || key })
+    }
+    return all.sort((a, b) => b.datetime - a.datetime).slice(0, 50)
+  }
+
   const renderFlat = (items: NewsItem[] | null) => {
     if (!items) return null
     if (items.length === 0) {
@@ -174,6 +185,31 @@ export default function NewsView() {
         </button>
       </div>
 
+      {/* Positionen: Sortierung */}
+      {tab === 'positions' && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-gray-400">Sortierung:</span>
+          <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setPosSort('date')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                posSort === 'date' ? 'bg-white text-accent shadow-sm' : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              Nach Datum
+            </button>
+            <button
+              onClick={() => setPosSort('ticker')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                posSort === 'ticker' ? 'bg-white text-accent shadow-sm' : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              Nach Ticker
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Finnhub hint */}
       {tab === 'positions' && !finnhubConfigured && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 mb-4 text-xs text-blue-700">
@@ -186,7 +222,7 @@ export default function NewsView() {
       {loading ? (
         <Spinner />
       ) : tab === 'positions' ? (
-        renderGrouped(positionNews)
+        posSort === 'date' ? renderFlat(flattenPositions(positionNews)) : renderGrouped(positionNews)
       ) : tab === 'market' ? (
         renderFlat(marketNews)
       ) : (
