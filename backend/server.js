@@ -417,7 +417,13 @@ app.post('/api/journal', (req, res) => {
 // ─── GET /api/news/positions ─────────────────────────────────────────────────
 app.get('/api/news/positions', async (req, res) => {
   try {
-    const tickers = db.prepare('SELECT DISTINCT ticker FROM positions WHERE ticker IS NOT NULL').all().map(r => r.ticker);
+    const tickers = db.prepare(`
+      SELECT p.ticker FROM positions p
+      JOIN sectors s ON p.sector_id = s.id
+      WHERE p.ticker IS NOT NULL
+      GROUP BY p.ticker
+      ORDER BY MIN(s.order_index), p.ticker
+    `).all().map(r => r.ticker);
     const data = await getPositionNews(tickers);
     res.json({ ...newsConfigStatus(), news: data });
   } catch (err) {

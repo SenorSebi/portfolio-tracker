@@ -148,11 +148,11 @@ async function fetchGoogleNews(query, limit = 10) {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 // News per portfolio ticker — Finnhub if available, Yahoo RSS fallback.
+// Returns an object whose key order follows the input ticker order (deterministic).
 async function getPositionNews(tickers) {
-  const result = {};
-  await Promise.all(
+  const entries = await Promise.all(
     tickers.map(async ticker => {
-      result[ticker] = await withCache(`pos:${ticker}`, async () => {
+      const items = await withCache(`pos:${ticker}`, async () => {
         let items = await fetchFinnhubCompanyNews(ticker);
         if (!items.length) {
           try {
@@ -163,8 +163,12 @@ async function getPositionNews(tickers) {
         }
         return dedupe(items).sort((a, b) => b.datetime - a.datetime).slice(0, 8);
       });
+      return [ticker, items];
     })
   );
+  // Promise.all preserves input order → rebuild object in that order.
+  const result = {};
+  for (const [ticker, items] of entries) result[ticker] = items;
   return result;
 }
 
@@ -180,19 +184,22 @@ async function getMarketNews() {
 }
 
 // Sector-specific news via Google News search, one feed per portfolio sector.
+// Returns an object whose key order follows the input sector order (order_index).
 async function getSectorNews(sectorNames) {
-  const result = {};
-  await Promise.all(
+  const entries = await Promise.all(
     sectorNames.map(async name => {
       // Clean sector label into a search-friendly query.
       const query = `${name.replace(/[\/&]/g, ' ')} stocks`;
-      result[name] = await withCache(`sector:${name}`, () =>
+      const items = await withCache(`sector:${name}`, () =>
         fetchGoogleNews(query, 8).then(items =>
           dedupe(items).sort((a, b) => b.datetime - a.datetime)
         )
       );
+      return [name, items];
     })
   );
+  const result = {};
+  for (const [name, items] of entries) result[name] = items;
   return result;
 }
 
