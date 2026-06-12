@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import db from './database.js';
 import { getPrices, clearCache, getRefreshStatus } from './priceService.js';
+import { getPositionNews, getMarketNews, getSectorNews, newsConfigStatus } from './newsService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -409,6 +410,41 @@ app.post('/api/journal', (req, res) => {
     );
     res.status(201).json(db.prepare('SELECT * FROM journal WHERE id = ?').get(result.lastInsertRowid));
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/news/positions ─────────────────────────────────────────────────
+app.get('/api/news/positions', async (req, res) => {
+  try {
+    const tickers = db.prepare('SELECT DISTINCT ticker FROM positions WHERE ticker IS NOT NULL').all().map(r => r.ticker);
+    const data = await getPositionNews(tickers);
+    res.json({ ...newsConfigStatus(), news: data });
+  } catch (err) {
+    console.error('GET /api/news/positions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/news/market ────────────────────────────────────────────────────
+app.get('/api/news/market', async (req, res) => {
+  try {
+    const data = await getMarketNews();
+    res.json({ ...newsConfigStatus(), news: data });
+  } catch (err) {
+    console.error('GET /api/news/market error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/news/sectors ───────────────────────────────────────────────────
+app.get('/api/news/sectors', async (req, res) => {
+  try {
+    const sectors = db.prepare('SELECT name FROM sectors ORDER BY order_index').all().map(s => s.name);
+    const data = await getSectorNews(sectors);
+    res.json({ ...newsConfigStatus(), news: data });
+  } catch (err) {
+    console.error('GET /api/news/sectors error:', err);
     res.status(500).json({ error: err.message });
   }
 });

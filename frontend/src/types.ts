@@ -55,6 +55,16 @@ export interface Alert {
   triggerPriceEur: number;
 }
 
+export interface NewsItem {
+  ticker?: string;
+  headline: string;
+  summary: string;
+  source: string;
+  url: string;
+  datetime: number;
+  image?: string | null;
+}
+
 export interface Position {
   id: number;
   sector_id: number;
