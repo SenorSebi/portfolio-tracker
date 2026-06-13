@@ -6,6 +6,7 @@ import TradeLogModal from './TradeLogModal'
 import ThesisPanel from './ThesisPanel'
 import ExitPanel from './ExitPanel'
 import EventBadge from './EventBadge'
+import { computeStatus, STATUS_META } from '../lib/positionStatus'
 
 interface PositionCardProps {
   position: Position
@@ -60,36 +61,8 @@ export default function PositionCard({
 
   const hasActiveAlert = alerts.some(a => a.ticker === position.ticker)
 
-  const isWatchlist = position.position_type === 'Watchlist' || position.shares === 0
-  let statusLabel = ''
-  let statusClass = ''
-
-  if (isWatchlist) {
-    statusLabel = '👁 WATCHLIST'
-    statusClass = 'bg-gray-100 text-gray-600 border border-gray-200'
-  } else if (priceEur !== null && position.dca_zones.length > 0) {
-    const nearestZone = position.dca_zones.find(
-      zone => Math.abs(priceEur - zone.price_eur) / zone.price_eur <= 0.05
-    )
-    const lowestZonePrice = Math.min(...position.dca_zones.map(z => z.price_eur))
-
-    if (nearestZone) {
-      statusLabel = '🟡 KAUFZONE'
-      statusClass = 'bg-yellow-50 text-warning border border-yellow-200'
-    } else if (priceEur < lowestZonePrice) {
-      statusLabel = '🔴 ALARM'
-      statusClass = 'bg-red-50 text-danger border border-red-200'
-    } else {
-      statusLabel = '🟢 IM PLAN'
-      statusClass = 'bg-green-50 text-success border border-green-200'
-    }
-  } else if (priceEur !== null) {
-    statusLabel = '🟢 IM PLAN'
-    statusClass = 'bg-green-50 text-success border border-green-200'
-  } else {
-    statusLabel = '⏳ KEIN KURS'
-    statusClass = 'bg-gray-100 text-gray-500 border border-gray-200'
-  }
+  const { status } = computeStatus(position, priceEur, { watchlistAware: true })
+  const statusMeta = STATUS_META[status]
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -143,8 +116,8 @@ export default function PositionCard({
                 </div>
               )}
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${statusClass}`}>
-              {statusLabel}
+            <span className={`text-xs font-semibold px-2 py-1 rounded-lg border whitespace-nowrap ${statusMeta.cls}`}>
+              {statusMeta.label}
             </span>
           </div>
 

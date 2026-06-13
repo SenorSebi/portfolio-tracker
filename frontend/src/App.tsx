@@ -214,7 +214,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">P</span>
@@ -222,7 +222,7 @@ export default function App() {
             <h1 className="text-xl font-bold text-gray-900">Portfolio Tracker</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
             {/* Alert chips */}
             {stopAlertCount > 0 && (
               <span className="text-xs font-bold text-red-700 bg-red-100 border border-red-300 rounded-full px-2.5 py-1 animate-pulse">
