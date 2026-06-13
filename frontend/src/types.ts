@@ -65,6 +65,23 @@ export interface NewsItem {
   image?: string | null;
 }
 
+export interface UpcomingEvent {
+  type: 'earnings' | 'split' | 'dividend';
+  date: string;
+  daysUntil: number;
+  label: string;
+  detail?: string;
+}
+
+export interface MoverReport {
+  ticker: string;
+  company_name: string;
+  changePercent: number;
+  priceUsd: number;
+  priceEur: number;
+  news: NewsItem[];
+}
+
 export interface Position {
   id: number;
   sector_id: number;

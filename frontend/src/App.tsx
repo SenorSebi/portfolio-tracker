@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
-import { PortfolioData, Sector, Alert } from './types'
+import { PortfolioData, Sector, Alert, UpcomingEvent, MoverReport } from './types'
 import SummaryBar from './components/SummaryBar'
 import SectorView from './components/SectorView'
 import OverviewList from './components/OverviewList'
@@ -70,6 +70,8 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [events, setEvents] = useState<Record<string, UpcomingEvent[]>>({})
+  const [movers, setMovers] = useState<MoverReport[]>([])
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -130,6 +132,7 @@ export default function App() {
       await axios.get('/api/prices/refresh')
       await checkStatus()
       await fetchPortfolio()
+      fetchMovers()
 
       pollRef.current = setInterval(checkStatus, 5000)
 
@@ -144,9 +147,29 @@ export default function App() {
     }
   }, [checkStatus, fetchPortfolio, stopPolling])
 
+  const fetchEvents = useCallback(async () => {
+    try {
+      const { data } = await axios.get<{ events: Record<string, UpcomingEvent[]> }>('/api/events')
+      setEvents(data.events || {})
+    } catch (err) {
+      console.error('Failed to load events:', err)
+    }
+  }, [])
+
+  const fetchMovers = useCallback(async () => {
+    try {
+      const { data } = await axios.get<{ movers: MoverReport[] }>('/api/movers')
+      setMovers(data.movers || [])
+    } catch (err) {
+      console.error('Failed to load movers:', err)
+    }
+  }, [])
+
   useEffect(() => {
     fetchPortfolio()
-  }, [fetchPortfolio])
+    fetchEvents()
+    fetchMovers()
+  }, [fetchPortfolio, fetchEvents, fetchMovers])
 
   const sectors: Sector[] = portfolioData?.sectors || []
   const prices = portfolioData?.prices || {}
@@ -337,7 +360,7 @@ export default function App() {
         ) : activeView === 'news' ? (
           <NewsView />
         ) : activeView === 'overview' ? (
-          <OverviewList sectors={sectors} prices={prices} eurUsdRate={eurUsdRate} />
+          <OverviewList sectors={sectors} prices={prices} eurUsdRate={eurUsdRate} events={events} movers={movers} />
         ) : (
           typeof activeView === 'number' && sectors[activeView] && (
             <SectorView
@@ -348,6 +371,7 @@ export default function App() {
               eurUsdRate={eurUsdRate}
               onRefresh={fetchPortfolio}
               alerts={alerts}
+              events={events}
             />
           )
         )}

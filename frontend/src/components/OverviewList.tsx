@@ -1,10 +1,14 @@
 import React from 'react'
-import { Sector, PriceData, Position, DcaZone } from '../types'
+import { Sector, PriceData, Position, DcaZone, UpcomingEvent, MoverReport } from '../types'
+import EventBadge from './EventBadge'
+import MoverReports from './MoverReports'
 
 interface OverviewListProps {
   sectors: Sector[]
   prices: Record<string, PriceData>
   eurUsdRate: number
+  events?: Record<string, UpcomingEvent[]>
+  movers?: MoverReport[]
 }
 
 type Status = 'alarm' | 'kaufzone' | 'implan' | 'nozone' | 'noprice'
@@ -81,7 +85,7 @@ const STATUS_CFG: Record<Status, { label: string; cls: string }> = {
   noprice:  { label: '⏳ KEIN KURS', cls: 'bg-gray-100 text-gray-400 border-gray-200' },
 }
 
-export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewListProps) {
+export default function OverviewList({ sectors, prices, eurUsdRate, events = {}, movers = [] }: OverviewListProps) {
   const rows = buildRows(sectors, prices, eurUsdRate)
 
   const alarmCount    = rows.filter(r => r.status === 'alarm').length
@@ -89,6 +93,9 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
 
   return (
     <div>
+      {/* Sharp daily movers (>15%) with explanatory news */}
+      <MoverReports movers={movers} />
+
       {/* Summary chips */}
       {(alarmCount > 0 || kaufzoneCount > 0) && (
         <div className="flex gap-3 mb-4">
@@ -112,6 +119,7 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Position</th>
               <th className="text-left px-4 py-3 hidden sm:table-cell">Sektor</th>
+              <th className="text-left px-4 py-3 hidden lg:table-cell">Termin</th>
               <th className="text-right px-4 py-3">Kurs</th>
               <th className="text-right px-4 py-3 hidden md:table-cell">Nächste Zone</th>
               <th className="text-right px-4 py-3">Abstand</th>
@@ -138,6 +146,20 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
                     <span className="ml-2 text-gray-400 text-xs hidden sm:inline">{position.company_name}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{sectorName}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    {(() => {
+                      const evs = events[position.ticker] || []
+                      if (evs.length === 0) return <span className="text-gray-300">—</span>
+                      return (
+                        <div className="flex items-center gap-1">
+                          <EventBadge event={evs[0]} />
+                          {evs.length > 1 && (
+                            <span className="text-xs text-gray-400">+{evs.length - 1}</span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">
                     {priceEur !== null ? `€${fmt2(priceEur)}` : <span className="text-gray-400">—</span>}
                   </td>
