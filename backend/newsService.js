@@ -207,4 +207,29 @@ function newsConfigStatus() {
   return { finnhubConfigured: !!FINNHUB_KEY };
 }
 
-export { getPositionNews, getMarketNews, getSectorNews, newsConfigStatus };
+// Build movement reports for tickers that moved sharply today.
+// `movers` = [{ ticker, company_name, changePercent, priceUsd, priceEur }]
+// Attaches the most recent news (likely drivers) to each.
+async function getMoverReports(movers) {
+  return Promise.all(
+    movers.map(async m => {
+      const news = await withCache(`pos:${m.ticker}`, async () => {
+        let items = await fetchFinnhubCompanyNews(m.ticker);
+        if (!items.length) {
+          try {
+            items = await fetchYahooTickerNews(m.ticker);
+          } catch (e) {
+            items = [];
+          }
+        }
+        return dedupe(items).sort((a, b) => b.datetime - a.datetime).slice(0, 8);
+      });
+      // Prefer news from the last ~2 days as the likely explanation.
+      const cutoff = Date.now() - 2 * 24 * 3600 * 1000;
+      const recent = news.filter(n => n.datetime >= cutoff);
+      return { ...m, news: (recent.length ? recent : news).slice(0, 5) };
+    })
+  );
+}
+
+export { getPositionNews, getMarketNews, getSectorNews, getMoverReports, newsConfigStatus };

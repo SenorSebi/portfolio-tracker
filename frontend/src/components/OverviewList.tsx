@@ -1,13 +1,16 @@
 import React from 'react'
-import { Sector, PriceData, Position, DcaZone } from '../types'
+import { Sector, PriceData, Position, DcaZone, UpcomingEvent, MoverReport } from '../types'
+import { computeStatus, STATUS_META, PositionStatus } from '../lib/positionStatus'
+import EventBadge from './EventBadge'
+import MoverReports from './MoverReports'
 
 interface OverviewListProps {
   sectors: Sector[]
   prices: Record<string, PriceData>
   eurUsdRate: number
+  events?: Record<string, UpcomingEvent[]>
+  movers?: MoverReport[]
 }
-
-type Status = 'alarm' | 'kaufzone' | 'implan' | 'nozone' | 'noprice'
 
 interface Row {
   position: Position
@@ -15,7 +18,7 @@ interface Row {
   priceEur: number | null
   nearestZone: DcaZone | null
   distancePct: number | null
-  status: Status
+  status: PositionStatus
   sortScore: number
 }
 
@@ -30,42 +33,7 @@ function buildRows(sectors: Sector[], prices: Record<string, PriceData>, eurUsdR
     for (const position of sector.positions || []) {
       const pd = prices[position.ticker]
       const priceEur = pd && pd.priceUsd > 0 ? pd.priceUsd / eurUsdRate : null
-
-      let nearestZone: DcaZone | null = null
-      let distancePct: number | null = null
-      let status: Status = 'noprice'
-      let sortScore = 10000
-
-      if (priceEur !== null) {
-        if (position.dca_zones.length === 0) {
-          status = 'nozone'
-          sortScore = 9000
-        } else {
-          const sorted = [...position.dca_zones].sort((a, b) => a.price_eur - b.price_eur)
-          const lowestZone = sorted[0]
-
-          if (priceEur < lowestZone.price_eur) {
-            // Below support — ALARM
-            distancePct = (priceEur - lowestZone.price_eur) / lowestZone.price_eur * 100
-            nearestZone = lowestZone
-            status = 'alarm'
-            sortScore = distancePct - 1000 // most below = lowest score = first
-          } else {
-            // Find the zone we are closest to from above
-            let best: DcaZone | null = null
-            let bestDist = Infinity
-            for (const zone of sorted) {
-              const d = (priceEur - zone.price_eur) / zone.price_eur * 100
-              if (d >= 0 && d < bestDist) { bestDist = d; best = zone }
-            }
-            nearestZone = best
-            distancePct = bestDist
-            status = bestDist <= 5 ? 'kaufzone' : 'implan'
-            sortScore = distancePct // ascending: closest zone first
-          }
-        }
-      }
-
+      const { status, nearestZone, distancePct, sortScore } = computeStatus(position, priceEur)
       rows.push({ position, sectorName: sector.name, priceEur, nearestZone, distancePct, status, sortScore })
     }
   }
@@ -73,15 +41,7 @@ function buildRows(sectors: Sector[], prices: Record<string, PriceData>, eurUsdR
   return rows.sort((a, b) => a.sortScore - b.sortScore)
 }
 
-const STATUS_CFG: Record<Status, { label: string; cls: string }> = {
-  alarm:    { label: '🔴 ALARM',    cls: 'bg-red-50 text-red-700 border-red-200' },
-  kaufzone: { label: '🟡 KAUFZONE', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  implan:   { label: '🟢 IM PLAN',  cls: 'bg-green-50 text-green-700 border-green-200' },
-  nozone:   { label: '— KEINE ZONE', cls: 'bg-gray-100 text-gray-500 border-gray-200' },
-  noprice:  { label: '⏳ KEIN KURS', cls: 'bg-gray-100 text-gray-400 border-gray-200' },
-}
-
-export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewListProps) {
+export default function OverviewList({ sectors, prices, eurUsdRate, events = {}, movers = [] }: OverviewListProps) {
   const rows = buildRows(sectors, prices, eurUsdRate)
 
   const alarmCount    = rows.filter(r => r.status === 'alarm').length
@@ -89,6 +49,9 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
 
   return (
     <div>
+      {/* Sharp daily movers (>15%) with explanatory news */}
+      <MoverReports movers={movers} />
+
       {/* Summary chips */}
       {(alarmCount > 0 || kaufzoneCount > 0) && (
         <div className="flex gap-3 mb-4">
@@ -112,6 +75,7 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Position</th>
               <th className="text-left px-4 py-3 hidden sm:table-cell">Sektor</th>
+              <th className="text-left px-4 py-3 hidden lg:table-cell">Termin</th>
               <th className="text-right px-4 py-3">Kurs</th>
               <th className="text-right px-4 py-3 hidden md:table-cell">Nächste Zone</th>
               <th className="text-right px-4 py-3">Abstand</th>
@@ -119,7 +83,7 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map(({ position, sectorName, priceEur, nearestZone, distancePct, status }) => {
-              const cfg = STATUS_CFG[status]
+              const cfg = STATUS_META[status]
               const isWatchlist = position.position_type === 'Watchlist' || position.shares === 0
               return (
                 <tr key={position.id} className="hover:bg-gray-50 transition-colors">
@@ -138,6 +102,20 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
                     <span className="ml-2 text-gray-400 text-xs hidden sm:inline">{position.company_name}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{sectorName}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    {(() => {
+                      const evs = events[position.ticker] || []
+                      if (evs.length === 0) return <span className="text-gray-300">—</span>
+                      return (
+                        <div className="flex items-center gap-1">
+                          <EventBadge event={evs[0]} />
+                          {evs.length > 1 && (
+                            <span className="text-xs text-gray-400">+{evs.length - 1}</span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">
                     {priceEur !== null ? `€${fmt2(priceEur)}` : <span className="text-gray-400">—</span>}
                   </td>
@@ -152,7 +130,7 @@ export default function OverviewList({ sectors, prices, eurUsdRate }: OverviewLi
                   <td className="px-4 py-3 text-right">
                     {distancePct !== null ? (
                       <span className={`font-bold ${
-                        distancePct < 0 ? 'text-red-600' : distancePct <= 5 ? 'text-yellow-600' : 'text-gray-500'
+                        distancePct < 0 ? 'text-danger' : distancePct <= 5 ? 'text-warning' : 'text-gray-500'
                       }`}>
                         {distancePct >= 0 ? '+' : ''}{distancePct.toFixed(1)}%
                       </span>

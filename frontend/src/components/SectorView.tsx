@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Sector, PriceData, Alert } from '../types'
+import { Sector, PriceData, Alert, UpcomingEvent } from '../types'
 import PositionCard from './PositionCard'
 import AddPositionModal from './AddPositionModal'
 
@@ -10,13 +10,14 @@ interface SectorViewProps {
   eurUsdRate: number
   onRefresh: () => void
   alerts?: Alert[]
+  events?: Record<string, UpcomingEvent[]>
 }
 
 function fmt(value: number): string {
   return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function SectorView({ sector, allSectors, prices, eurUsdRate, onRefresh, alerts = [] }: SectorViewProps) {
+export default function SectorView({ sector, allSectors, prices, eurUsdRate, onRefresh, alerts = [], events = {} }: SectorViewProps) {
   const sectors = allSectors || [sector]
   const [showAddModal, setShowAddModal] = useState(false)
 
@@ -121,6 +122,7 @@ export default function SectorView({ sector, allSectors, prices, eurUsdRate, onR
               onRefresh={onRefresh}
               sectors={sectors}
               alerts={alerts}
+              events={events[position.ticker] || []}
             />
           ))}
         </div>

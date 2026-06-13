@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import axios from 'axios'
-import { Position, PriceData, Sector, Thesis, ExitRules, Alert } from '../types'
+import { Position, PriceData, Sector, Thesis, ExitRules, Alert, UpcomingEvent } from '../types'
 import AddPositionModal from './AddPositionModal'
 import TradeLogModal from './TradeLogModal'
 import ThesisPanel from './ThesisPanel'
 import ExitPanel from './ExitPanel'
+import EventBadge from './EventBadge'
+import { computeStatus, STATUS_META } from '../lib/positionStatus'
 
 interface PositionCardProps {
   position: Position
@@ -13,7 +15,10 @@ interface PositionCardProps {
   onRefresh: () => void
   sectors: Sector[]
   alerts: Alert[]
+  events?: UpcomingEvent[]
 }
+
+const BIG_MOVE_PCT = 15
 
 function fmt(value: number): string {
   return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -30,6 +35,7 @@ export default function PositionCard({
   onRefresh,
   sectors,
   alerts,
+  events = [],
 }: PositionCardProps) {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showTradeModal, setShowTradeModal] = useState(false)
@@ -41,6 +47,7 @@ export default function PositionCard({
   const priceEur = priceData && priceData.priceUsd > 0 ? priceData.priceUsd / eurUsdRate : null
   const priceUsd = priceData && priceData.priceUsd > 0 ? priceData.priceUsd : null
   const changePercent = priceData ? priceData.changePercent : null
+  const isBigMove = changePercent !== null && Math.abs(changePercent) >= BIG_MOVE_PCT
 
   const currentValue = priceEur !== null ? position.shares * priceEur : null
   const totalInvested = position.shares * position.avg_cost_eur
@@ -54,36 +61,8 @@ export default function PositionCard({
 
   const hasActiveAlert = alerts.some(a => a.ticker === position.ticker)
 
-  const isWatchlist = position.position_type === 'Watchlist' || position.shares === 0
-  let statusLabel = ''
-  let statusClass = ''
-
-  if (isWatchlist) {
-    statusLabel = '👁 WATCHLIST'
-    statusClass = 'bg-gray-100 text-gray-600 border border-gray-200'
-  } else if (priceEur !== null && position.dca_zones.length > 0) {
-    const nearestZone = position.dca_zones.find(
-      zone => Math.abs(priceEur - zone.price_eur) / zone.price_eur <= 0.05
-    )
-    const lowestZonePrice = Math.min(...position.dca_zones.map(z => z.price_eur))
-
-    if (nearestZone) {
-      statusLabel = '🟡 KAUFZONE'
-      statusClass = 'bg-yellow-50 text-warning border border-yellow-200'
-    } else if (priceEur < lowestZonePrice) {
-      statusLabel = '🔴 ALARM'
-      statusClass = 'bg-red-50 text-danger border border-red-200'
-    } else {
-      statusLabel = '🟢 IM PLAN'
-      statusClass = 'bg-green-50 text-success border border-green-200'
-    }
-  } else if (priceEur !== null) {
-    statusLabel = '🟢 IM PLAN'
-    statusClass = 'bg-green-50 text-success border border-green-200'
-  } else {
-    statusLabel = '⏳ KEIN KURS'
-    statusClass = 'bg-gray-100 text-gray-500 border border-gray-200'
-  }
+  const { status } = computeStatus(position, priceEur, { watchlistAware: true })
+  const statusMeta = STATUS_META[status]
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -110,7 +89,11 @@ export default function PositionCard({
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+      <div className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow flex flex-col ${
+        isBigMove
+          ? changePercent! >= 0 ? 'border-green-400 ring-2 ring-green-100' : 'border-red-400 ring-2 ring-red-100'
+          : 'border-gray-200'
+      }`}>
         {/* Card Header */}
         <div className="p-4 pb-3 border-b border-gray-100">
           <div className="flex items-start justify-between gap-2">
@@ -127,9 +110,14 @@ export default function PositionCard({
                 )}
               </div>
               <p className="text-sm text-gray-500 truncate mt-0.5">{position.company_name}</p>
+              {events.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                  {events.map((ev, i) => <EventBadge key={i} event={ev} />)}
+                </div>
+              )}
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${statusClass}`}>
-              {statusLabel}
+            <span className={`text-xs font-semibold px-2 py-1 rounded-lg border whitespace-nowrap ${statusMeta.cls}`}>
+              {statusMeta.label}
             </span>
           </div>
 
@@ -146,9 +134,20 @@ export default function PositionCard({
               )}
             </div>
             {changePercent !== null && (
-              <span className={`text-sm font-medium ${changePercent >= 0 ? 'text-success' : 'text-danger'}`}>
-                {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
-              </span>
+              <div className="flex items-center gap-1.5">
+                {isBigMove && (
+                  <span className={`text-xs font-bold rounded px-1.5 py-0.5 ${
+                    changePercent >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    ⚡ {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(1)}%
+                  </span>
+                )}
+                {!isBigMove && (
+                  <span className={`text-sm font-medium ${changePercent >= 0 ? 'text-success' : 'text-danger'}`}>
+                    {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>

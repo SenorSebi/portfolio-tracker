@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import db from './database.js';
 import { getPrices, clearCache, getRefreshStatus } from './priceService.js';
-import { getPositionNews, getMarketNews, getSectorNews, newsConfigStatus } from './newsService.js';
+import { getPositionNews, getMarketNews, getSectorNews, getMoverReports, newsConfigStatus } from './newsService.js';
+import { getUpcomingEvents, eventsConfigStatus } from './eventsService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -451,6 +452,63 @@ app.get('/api/news/sectors', async (req, res) => {
     res.json({ ...newsConfigStatus(), news: data });
   } catch (err) {
     console.error('GET /api/news/sectors error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/events ─────────────────────────────────────────────────────────
+// Upcoming calendar events (earnings, splits) per portfolio ticker.
+app.get('/api/events', async (req, res) => {
+  try {
+    const tickers = db.prepare(`
+      SELECT p.ticker FROM positions p
+      JOIN sectors s ON p.sector_id = s.id
+      WHERE p.ticker IS NOT NULL
+      GROUP BY p.ticker
+      ORDER BY MIN(s.order_index), p.ticker
+    `).all().map(r => r.ticker);
+    const events = await getUpcomingEvents(tickers);
+    res.json({ ...eventsConfigStatus(), events });
+  } catch (err) {
+    console.error('GET /api/events error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/movers ─────────────────────────────────────────────────────────
+// Positions that moved >= threshold% today, with likely-driver news attached.
+app.get('/api/movers', async (req, res) => {
+  try {
+    const THRESHOLD = parseFloat(req.query.threshold) || 15;
+    const positions = db.prepare(`
+      SELECT p.ticker, p.company_name FROM positions p
+      WHERE p.ticker IS NOT NULL
+      GROUP BY p.ticker
+    `).all();
+    const tickers = ['EURUSD=X', ...positions.map(p => p.ticker)];
+    const prices = await getPrices([...new Set(tickers)]);
+    const eurUsdRate = prices['EURUSD=X']?.priceUsd || 1.08;
+
+    const candidates = positions
+      .map(p => {
+        const pd = prices[p.ticker];
+        return pd && pd.priceUsd > 0
+          ? {
+              ticker: p.ticker,
+              company_name: p.company_name,
+              changePercent: pd.changePercent,
+              priceUsd: pd.priceUsd,
+              priceEur: pd.priceUsd / eurUsdRate,
+            }
+          : null;
+      })
+      .filter(p => p && Math.abs(p.changePercent) >= THRESHOLD)
+      .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
+
+    const movers = await getMoverReports(candidates);
+    res.json({ threshold: THRESHOLD, movers });
+  } catch (err) {
+    console.error('GET /api/movers error:', err);
     res.status(500).json({ error: err.message });
   }
 });
