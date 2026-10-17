@@ -4,6 +4,13 @@ Express + better-sqlite3 backend (`backend/`), React/Vite/Tailwind frontend (`fr
 Deployed on Railway; the live SQLite file sits on a Railway volume (`DB_PATH` env var,
 local default `backend/portfolio.db`, git-ignored).
 
+## Arbeitsweise
+
+- Gearbeitet wird direkt auf `main`, keine Feature-Branches oder PRs.
+- **Push auf `main` = Deploy auf Railway.** Vor jedem Push prüfen, dass der Build durchläuft.
+- Lokaler Klon: `~/Library/CloudStorage/GoogleDrive-sebijilch@gmail.com/Meine Ablage/Finance Claude/portfolio-tracker`
+  (`npm run install:all`, dann `npm run dev`).
+
 ## Datenhaltung
 
 Alle Daten liegen in SQLite (`backend/database.js`). Inhaltliche Datenänderungen (Positionen, Zonen,
