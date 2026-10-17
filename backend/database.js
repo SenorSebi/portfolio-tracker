@@ -735,4 +735,18 @@ if (!v11ran) {
   console.log('Migration v11: MedTech / Healthcare sector created with 7 positions.');
 }
 
+// ─── Migration v12: Übergabe 2026-10-17_1510_note_PORTFOLIO ──────────────────
+const v12ran = db.prepare("SELECT id FROM migrations WHERE name = 'v12_uebergabe_test_note'").get();
+if (!v12ran) {
+  const migrateV12 = db.transaction(() => {
+    db.prepare(`INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(null, 'note', 'Übergabe-System v1.0 eingerichtet am 2026-10-17.', null, 1, 0);
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v12_uebergabe_test_note')").run();
+  });
+  migrateV12();
+  console.log('Migration v12: Übergabe-Testnotiz ins Journal eingetragen.');
+}
+
 export default db;
