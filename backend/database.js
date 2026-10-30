@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH || join(__dirname, 'portfolio.db');
@@ -747,6 +748,126 @@ if (!v12ran) {
   });
   migrateV12();
   console.log('Migration v12: Übergabe-Testnotiz ins Journal eingetragen.');
+}
+
+// ─── Migration v13: Übergaben 2026-10-17 (NET) + Gesamtkonsolidierung 2026-10-30 ──
+// Daten 1:1 aus den Übergabe-Dateien in backend/data/v13_uebergaben.json.
+// Nicht abbildbar (kein Feld im Tracker): referenceListing, zoneCurrency, status, catalysts,
+// thesisCard, source, thesisCheck.metric/breakThreshold/source, bucket ohne These-Karte.
+const v13ran = db.prepare("SELECT id FROM migrations WHERE name = 'v13_konsolidierung_2026_10_30'").get();
+if (!v13ran) {
+  const handovers = JSON.parse(readFileSync(join(__dirname, 'data', 'v13_uebergaben.json'), 'utf8'));
+
+  const migrateV13 = db.transaction(() => {
+    // System-Sektornummern der Finance-Chats → Tracker-Sektoren (nur für neue Ticker)
+    let water = db.prepare('SELECT id FROM sectors WHERE name = ?').get('Wasser-Infrastruktur');
+    if (!water) {
+      const maxOrder = db.prepare('SELECT MAX(order_index) AS m FROM sectors').get().m || 0;
+      const r = db.prepare('INSERT INTO sectors (name, description, order_index) VALUES (?, ?, ?)')
+        .run('Wasser-Infrastruktur', '', maxOrder + 1);
+      water = { id: r.lastInsertRowid };
+    }
+    const sectorNames = { 1: 'AI Infrastructure', 2: 'Quantum Comp', 3: 'Biotech', 8: 'Cybersecurity', 10: 'MedTech / Healthcare', 11: 'Wasser-Infrastruktur' };
+    const sectorId = (n) => db.prepare('SELECT id FROM sectors WHERE name = ?').get(sectorNames[n])?.id ?? null;
+
+    const insertDca = db.prepare('INSERT INTO dca_zones (position_id, price_eur, label) VALUES (?, ?, ?)');
+    const insertJournal = db.prepare(`INSERT INTO journal (ticker, action, note, luck_or_skill, rule_followed, unplanned)
+      VALUES (?, 'note', ?, NULL, 1, 0)`);
+
+    const upsert = (it) => {
+      let pos = db.prepare('SELECT * FROM positions WHERE ticker = ? ORDER BY id').get(it.ticker);
+      if (!pos) {
+        const r = db.prepare(`INSERT INTO positions (sector_id, ticker, company_name, position_type, shares, avg_cost_eur, target_size_eur, stop_loss_eur, notes)
+          VALUES (?, ?, ?, ?, 0, 0, ?, NULL, ?)`)
+          .run(sectorId(it.sector), it.ticker, it.name || it.ticker, it.type || 'Watchlist', it.targetEur || 0, it.notes || '');
+        pos = db.prepare('SELECT * FROM positions WHERE id = ?').get(r.lastInsertRowid);
+      }
+      db.prepare(`UPDATE positions SET company_name=?, position_type=?, target_size_eur=?, stop_loss_eur=?, notes=? WHERE id=?`)
+        .run(
+          it.name ?? pos.company_name,
+          it.type ?? pos.position_type,
+          it.targetEur ?? pos.target_size_eur,
+          'stopLossEur' in it ? it.stopLossEur : pos.stop_loss_eur,
+          it.notes ?? pos.notes,
+          pos.id);
+
+      if (Array.isArray(it.dcaZones)) {
+        db.prepare('DELETE FROM dca_zones WHERE position_id = ?').run(pos.id);
+        for (const z of it.dcaZones) {
+          if (z.priceEurInfo == null) continue;
+          insertDca.run(pos.id, z.priceEurInfo, z.priceRef != null ? `${z.label} ($${z.priceRef})` : z.label);
+        }
+      }
+
+      if (it.thesis || it.thesisCheck) {
+        if (!db.prepare('SELECT id FROM thesis WHERE ticker = ?').get(it.ticker)) {
+          db.prepare('INSERT INTO thesis (ticker) VALUES (?)').run(it.ticker);
+        }
+        const t = it.thesis || {};
+        const c = it.thesisCheck || {};
+        const cur = db.prepare('SELECT * FROM thesis WHERE ticker = ?').get(it.ticker);
+        db.prepare(`UPDATE thesis SET bucket=?, "case"=?, right_if=?, wrong_if=?, max_weight_pct=?,
+          check_cadence=?, next_check_date=?, last_checked_value=?, last_checked_date=?, updated_at=current_timestamp WHERE ticker=?`)
+          .run(
+            t.bucket ?? cur.bucket, t.case ?? cur.case, t.rightIf ?? cur.right_if, t.wrongIf ?? cur.wrong_if,
+            'maxWeightPct' in t ? t.maxWeightPct : cur.max_weight_pct,
+            c.checkCadence ?? cur.check_cadence, c.nextCheckDate ?? cur.next_check_date,
+            c.lastCheckedValue ?? cur.last_checked_value, c.lastCheckedDate ?? cur.last_checked_date,
+            it.ticker);
+      }
+
+      if (it.stopEvent) {
+        const s = it.stopEvent;
+        const cond = `STOP-EVENT: ${s.condition}, ${s.persistence} (Quelle: ${s.source}). Pre-Buy-Thesischeck erforderlich.`;
+        if (db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get(it.ticker)) {
+          db.prepare('UPDATE exit_rules SET thesis_break_condition=?, updated_at=current_timestamp WHERE ticker=?').run(cond, it.ticker);
+        } else {
+          db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+            VALUES (?, NULL, '[]', ?, NULL)`).run(it.ticker, cond);
+        }
+      }
+    };
+
+    const note = (it) => {
+      let text = it.text;
+      if (it.sollbestand) {
+        const pos = db.prepare('SELECT id FROM positions WHERE ticker = ? ORDER BY id').get(it.ticker);
+        db.prepare('UPDATE positions SET shares=?, avg_cost_eur=? WHERE id=?')
+          .run(it.sollbestand.shares, it.sollbestand.avgCostEur, pos.id);
+        text += ' → Bestand direkt gesetzt (Migration v13, OK Sebastian 2026-10-30).';
+      }
+      insertJournal.run(it.ticker === 'PORTFOLIO' ? null : it.ticker, text);
+    };
+
+    for (const h of handovers) {
+      for (const it of h.items) {
+        if (it.action === 'upsert') upsert(it);
+        else if (it.action === 'note') note(it);
+        else throw new Error(`v13: unerwartete Aktion ${it.action} in ${h.file}`);
+      }
+    }
+
+    // Regelwerk v1.2: Trim-Leiter +30/+60/+100 je 20 %, Trailing-Stop 20 %, keine Kurs-Stops
+    const tpV12 = JSON.stringify([
+      { targetPct: 30,  sharesToSell: 20, label: 'Trim 1 (20 % der ursprünglichen Stückzahl)' },
+      { targetPct: 60,  sharesToSell: 20, label: 'Trim 2 (20 % der ursprünglichen Stückzahl)' },
+      { targetPct: 100, sharesToSell: 20, label: 'Trim 3 (20 % der ursprünglichen Stückzahl), Rest Trailing-Stop 20 %' },
+    ]);
+    for (const ticker of ['BNTX', 'CRSP', 'SDGR', 'ABT', 'TMO', 'MDT', 'AMKR', 'ZS']) {
+      if (db.prepare('SELECT id FROM exit_rules WHERE ticker = ?').get(ticker)) {
+        db.prepare(`UPDATE exit_rules SET stop_loss_pct=NULL, take_profit_rules=?, trailing_stop_pct=20,
+          updated_at=current_timestamp WHERE ticker=?`).run(tpV12, ticker);
+      } else {
+        db.prepare(`INSERT INTO exit_rules (ticker, stop_loss_pct, take_profit_rules, thesis_break_condition, trailing_stop_pct)
+          VALUES (?, NULL, ?, '', 20)`).run(ticker, tpV12);
+      }
+    }
+    db.prepare('UPDATE positions SET stop_loss_eur = NULL').run();
+
+    db.prepare("INSERT INTO migrations (name) VALUES ('v13_konsolidierung_2026_10_30')").run();
+  });
+  migrateV13();
+  console.log('Migration v13: Übergaben NET + Konsolidierung 2026-10-30 eingebaut.');
 }
 
 export default db;

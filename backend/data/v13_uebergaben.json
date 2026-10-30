@@ -1,0 +1,1027 @@
+[
+ {
+  "file": "2026-10-17_2055_multi_NET.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "NET",
+    "name": "Cloudflare, Inc.",
+    "sector": 8,
+    "type": "Watchlist",
+    "bucket": "B",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "dcaZones": [],
+    "thesis": {
+     "bucket": "B",
+     "case": "Cloudflare betreibt eines der größten Edge-Netzwerke; darauf laufen Security (Zero Trust/SASE), Developer-Plattform (Workers) und AI-Inference am Edge. Wachstum Q2 2026 auf +36 % beschleunigt (cRPO +35 %), Non-GAAP profitabel mit positivem FCF.",
+     "rightIf": "Umsatzwachstum bleibt ≥ 28–30 % YoY, Non-GAAP-Operating-Marge steigt Richtung ≥ 15 %, FCF-Marge steigt.",
+     "wrongIf": "Umsatzwachstum < 25 % bei weiter hoher Bewertung, oder Non-GAAP-Bruttomarge dauerhaft < 70 % durch AI-Capex.",
+     "maxWeightPct": null
+    },
+    "thesisCheck": {
+     "metric": "Umsatzwachstum % YoY (+ Non-GAAP-Operating-Marge)",
+     "breakThreshold": "< 25 % YoY zwei Quartale in Folge",
+     "source": "Cloudflare IR Quartals-PR / 10-Q",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "Anfang Nov. 2026 (Q3-Earnings, Datum offen)",
+     "lastCheckedValue": "Q2 2026: Umsatz +36 % YoY, Non-GAAP-OpMarge 13,8 %, FCF-Marge 8 %",
+     "lastCheckedDate": "2026-08-06"
+    },
+    "stopEvent": {
+     "condition": "Umsatzwachstum YoY < 25 %",
+     "persistence": "zwei Quartale in Folge",
+     "source": "Quartals-PR / 10-Q"
+    },
+    "catalysts": [
+     {
+      "date": "2026-11",
+      "event": "Q3-2026-Earnings (Datum offen)"
+     }
+    ],
+    "thesisCard": true,
+    "source": "System (Watchlist seit Mai 2026)",
+    "notes": "Watchlist/Bucket B. Rücksetzer Okt. 2026 (−18 % vom 52W-Hoch $360,93 auf $296,30) passt nicht ins Schema: keine Zone berührt, Bewertung ≈ 36x Umsatz 2026e. Zonen noch offen (A: Ref. 52W-Hoch / B: Ref. 200-Tage-Linie). Nächster Check: Q3-Earnings Anf. Nov."
+   },
+   {
+    "action": "note",
+    "ticker": "NET",
+    "text": "2026-10-17 Analyse: −18 % vom Hoch ≠ Kaufsignal. Alte EUR-Zonen (158/140/118) und Kurs-Stop 132 entfernt (vor v1.1 gesetzt, veraltet). These-Karte + stopEvent angelegt. Zonen, maxWeight und Zielgröße offen. Erste Tranche frühestens nach Q3-Earnings."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2140_multi_PORTFOLIO-SYSTEM.md",
+  "items": [
+   {
+    "action": "note",
+    "ticker": "PORTFOLIO",
+    "text": "Regelwerk-Stand für den Tracker: v1.2 (Projektdatei noch v1.1). Trim-Leiter: +30 % / +60 % / +100 %, je 20 % der ursprünglichen Stückzahl, Rest mit Trailing-Stop 20 %. Kein Kurs-Stop unterhalb des Einstands; Stop = Ereignis mit Persistenzbedingung (v1.1). Zonen in der Währung des Referenzlistings (USD für US-Werte), EUR nur informativ. Verfassung 11: kein Vollpositions-Stop als Gewinnschutz – Trim-Leiter. Verfassung 12: exogene Kurssprünge ≥ 15 % an einem Tag sind keine Referenz; 5 Handelstage warten. Mindestens 20 % trockenes Pulver; DCA 40/35/25; 48h-Regel bei außerplanmäßigen Verkäufen. Meta-These Bucket B: Stichtag 2027-06-30, danach Zeit-DCA-Fallback (12 Monatstranchen). ANWEISUNG an Code (nur nach Vorschau/OK): (1) exit_rules.take_profit_rules aller Werte auf v1.2 umstellen [{targetPct:30,sellPctOfOriginal:20},{targetPct:60,sellPctOfOriginal:20},{targetPct:100,sellPctOfOriginal:20}], trailing_stop_pct 20; (2) exit_rules.stop_loss_pct für BNTX, CRSP, SDGR auf null; (3) positions.stop_loss_eur überall auf null (einzeln auch in den upserts gesetzt)."
+   },
+   {
+    "action": "note",
+    "ticker": "PORTFOLIO",
+    "text": "Bewusst abgelehnt / ausgeschlossen: AIBZ (Bitzero): Externer Tipp, nach Regel 5 geprüft und abgelehnt.; INFQ (—): Externer Tipp (YouTube), nach Regel 5 geprüft und abgelehnt.; XNDU (—): Externer Tipp (YouTube), nach Regel 5 geprüft und abgelehnt.; Sektor 4 (Defense): Dauerhaft ausgeschlossen (ethisch), Dual-Use-Schwelle 15 % Umsatz.; XXI (Krypto-Vehikel (Altposition)): Wurde als passive Altposition im Verlust geführt, ist aber nicht in POSITIONEN.md → Status klären."
+   },
+   {
+    "action": "note",
+    "ticker": "PORTFOLIO",
+    "text": "Offene Systemfragen: Fast alle nextCheckDates (Juni–Aug.) sind überfällig, Q3-Saison läuft → „Strategie prüfen“ fällig. | Bezugsgröße für maxWeightPct: Satelliten-Depot (€11,8k) oder Gesamtvermögen inkl. MSCI-World-Kern? Danach sind BNTX, CRSP, SDGR, ABT über bzw. unter Limit. | Sektor-Obergrenze fehlt: Sektor 3 = 43,6 % des Depots. | Tracker speichert Zonen nur in EUR → Erweiterung price_ref + zone_currency (bereits in NET-Übergabe angefragt). | Tracker hat noch die alte Gewinnleiter (+50/+100) und Kurs-Stops (stop_loss_eur/stop_loss_pct) → auf v1.2 umstellen. | target_size_eur enthält bei vielen Watchlist-Werten Kurse statt Positionsgrößen (Quantum, Cyber, Sektor 1) → Feld kursziel vorschlagen, Zielgrößen neu festlegen. | Sektor-Nummern: Übergaben nutzen die System-Nummern (1, 2, 3, 8, 10, 11); Tracker hat eigene IDs → Code mappt. | MASTER-REGELWERK.md v1.2 und POSITIONEN.md (aktueller Broker-Stand) im Projekt ersetzen."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2141_multi_PORTFOLIO-BESTAND.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "AMKR",
+    "name": "Amkor Technology Inc.",
+    "sector": 1,
+    "type": "Core",
+    "bucket": "A",
+    "status": "IN_KAUFZONE",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "catalysts": [
+     {
+      "date": "2026-10/11",
+      "event": "Q3-2026-Earnings (Vietnam-Ramp SiP) – Datum prüfen"
+     }
+    ],
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Größte Einzelposition (25,6 %) und einzige mit zweistelligem Minus. Bei −13,9 % liegt sie rechnerisch in Nachkauf-Zone 1 (−10 bis −15 % vom Einstand). Die Rest-Tranche ist bewusst bis zu den Q3-Earnings zurückgestellt; vor jedem Nachkauf Pflicht-These-Check. Kein Verkauf auf Kurs (Regelwerk v1.1). Tracker führt AMKR noch als Watchlist mit 0 Stück – Bestand muss abgeglichen werden."
+   },
+   {
+    "action": "note",
+    "ticker": "AMKR",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 68 Stück @ €51,43 (Tracker: 0 Stück @ €0,00). Trim-Leiter v1.2 ab Einstand: +30 % = €66,86 (13 Stk.), +60 % = €82,29 (13 Stk.), +100 % = €102,86 (13 Stk.)",
+    "sollbestand": {
+     "shares": 68,
+     "avgCostEur": 51.43,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "upsert",
+    "ticker": "BNTX",
+    "name": "BioNTech SE (ADR)",
+    "sector": 3,
+    "type": "Core",
+    "bucket": "A",
+    "status": "IM_PLAN",
+    "referenceListing": "XETRA",
+    "zoneCurrency": "EUR",
+    "stopLossEur": null,
+    "thesis": {
+     "bucket": "A",
+     "case": "BioNTech ist eine Cash-reiche Onkologie-Company, die der Markt noch als Impfstoffunternehmen bewertet. €16,8 Mrd. Cash > Market Cap. Pumitamig-BMS-Deal ($3,5 Mrd. upfront) rechtfertigt Neubewertung.",
+     "rightIf": "Pumitamig erste Zulassung bis 2028, COVID-Umsätze stabil bei €1,5+ Mrd., Buyback messbar",
+     "wrongIf": "Cash unter €10 Mrd. ohne Pipeline-Erfolg, Pumitamig Phase-3-Failure, Umsatz unter €1,5 Mrd.",
+     "maxWeightPct": 15
+    },
+    "thesisCheck": {
+     "metric": "Cash-Bestand + Pipeline-Status Pumitamig",
+     "breakThreshold": "Cash < €12 Mrd. UND kein Phase-3-Erfolg",
+     "source": "BioNTech IR Quartalsbericht (6-K)",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-08-01",
+     "lastCheckedValue": "€16,8 Mrd. Cash, 5 pivotale Studien laufen",
+     "lastCheckedDate": "2026-06-06"
+    },
+    "stopEvent": {
+     "condition": "Cash < €12 Mrd. UND kein Phase-3-Erfolg",
+     "persistence": "bestätigt im Quartalsbericht (Vorschlag – bestätigen)",
+     "source": "BioNTech 6-K / IR"
+    },
+    "catalysts": [
+     {
+      "date": "2026-11",
+      "event": "Q3-2026-Bericht – Datum prüfen"
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "These intakt laut letztem Check (Juni). Q2-Review (August) ist laut POSITIONEN als voller These-Review vorgesehen, Ergebnis ist nirgends fixiert → nachholen. Gewicht 17,1 % liegt über maxWeight 15 % → keine Nachkäufe, solange die Bezugsgröße nicht geklärt ist. Alte Kurs-Stops (€67,57 / 15 %) widersprechen v1.1 und werden entfernt."
+   },
+   {
+    "action": "note",
+    "ticker": "BNTX",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 25 Stück @ €79,35 (Tracker: 25 Stück @ €79,50). Trim-Leiter v1.2 ab Einstand: +30 % = €103,16 (5 Stk.), +60 % = €126,96 (5 Stk.), +100 % = €158,70 (5 Stk.)",
+    "sollbestand": {
+     "shares": 25,
+     "avgCostEur": 79.35,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "upsert",
+    "ticker": "ABT",
+    "name": "Abbott Laboratories",
+    "sector": 10,
+    "type": "Core",
+    "bucket": "A",
+    "status": "IM_PLAN",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesis": {
+     "bucket": "A",
+     "case": "Defensiver Compounder mit CGM-Runway (70–80 Mio. Kandidaten, 10–12 Mio. penetriert) und Exact-Sciences-Einstieg in Krebsdiagnostik; ~16x Forward historisch günstig.",
+     "rightIf": "CGM zurück zu zweistelligem Wachstum ab Q2 2026, FY-Guidance 6,5–7,5 % hält, Dividende steigt weiter",
+     "wrongIf": "CGM-Sättigung bestätigt (2 Quartale < 5 %), Exact verwässert > 0,30 USD EPS",
+     "maxWeightPct": 5
+    },
+    "thesisCheck": {
+     "metric": "Vergleichbares Umsatzwachstum + CGM-Wachstum",
+     "breakThreshold": "Vergleichbar < 4 % UND CGM < 5 %, zwei Quartale in Folge",
+     "source": "Abbott 8-K / 10-Q",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-07-16",
+     "lastCheckedValue": "Q1/26: +3,7 % vergleichbar, CGM +7,6 % vergleichbar; Guidance bestätigt",
+     "lastCheckedDate": "2026-06-10"
+    },
+    "stopEvent": {
+     "condition": "Vergleichbares Wachstum < 4 % UND CGM < 5 %",
+     "persistence": "zwei Quartale in Folge",
+     "source": "8-K / 10-Q"
+    },
+    "dcaZones": [
+     {
+      "label": "Erstposition",
+      "priceRef": 87,
+      "priceEurInfo": 75
+     },
+     {
+      "label": "Nachkauf 1",
+      "priceRef": 78,
+      "priceEurInfo": 68
+     },
+     {
+      "label": "Nachkauf 2",
+      "priceRef": 69,
+      "priceEurInfo": 60
+     }
+    ],
+    "catalysts": [
+     {
+      "date": "2026-10",
+      "event": "Q3-2026-Earnings – Ergebnis prüfen"
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Bester Verlauf im Depot (+20,75 %). Nach Regelwerk v1.2 greift die erste Trim-Stufe bei +30 % (≈ €98,15, 4 Stück) – sie ist nah. Kein Nachkauf, die Erstposition liegt deutlich im Gewinn. These-Checks für Q2 und Q3 sind nicht fixiert. Gewicht 15,5 % vs. maxWeight 5 % → Bezugsgröße klären. Tracker führt ABT mit 0 Stück."
+   },
+   {
+    "action": "note",
+    "ticker": "ABT",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 20 Stück @ €75,50 (Tracker: 0 Stück @ €0,00). Trim-Leiter v1.2 ab Einstand: +30 % = €98,15 (4 Stk.), +60 % = €120,80 (4 Stk.), +100 % = €151,00 (4 Stk.)",
+    "sollbestand": {
+     "shares": 20,
+     "avgCostEur": 75.5,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "upsert",
+    "ticker": "ZS",
+    "name": "Zscaler Inc.",
+    "sector": 8,
+    "type": "Core",
+    "bucket": "A",
+    "status": "IM_PLAN",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "targetEur": 4000,
+    "stopLossEur": null,
+    "catalysts": [
+     {
+      "date": "2026-11/12",
+      "event": "Q1-FY27-Earnings – Datum prüfen"
+     }
+    ],
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Erstposition (~40 % der Zielgröße €4.000) steht, +14 %. Restliche Tranchen nur in Zonen. Der vereinbarte Prüfpunkt war Q4 FY26 (Aug./Sep.) mit Revenue-Wachstum ≥ 18 % – das Ergebnis ist nicht fixiert. These-Karte und stopEvent fehlen im Tracker."
+   },
+   {
+    "action": "note",
+    "ticker": "ZS",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 14 Stück @ €112,90 (Tracker: 0 Stück @ €0,00). Trim-Leiter v1.2 ab Einstand: +30 % = €146,77 (2 Stk.), +60 % = €180,64 (2 Stk.), +100 % = €225,80 (2 Stk.)",
+    "sollbestand": {
+     "shares": 14,
+     "avgCostEur": 112.9,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "upsert",
+    "ticker": "CRSP",
+    "name": "CRISPR Therapeutics AG",
+    "sector": 3,
+    "type": "Core",
+    "bucket": "A",
+    "status": "IM_PLAN",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesis": {
+     "bucket": "A",
+     "case": "CRSP ist das einzige Gen-Editing-Unternehmen mit zugelassenem Produkt und wachsendem Revenue. Casgevy-Ramp + breite In-vivo-Pipeline (CTX310 Kardio) rechtfertigen Neubewertung auf 3–5 Jahre.",
+     "rightIf": "Casgevy über $200 Mio./Jahr bis 2027, CTX310 konsistente Phase-1b-Daten, Cash über $1,5 Mrd.",
+     "wrongIf": "Casgevy unter $30 Mio./Quartal für 2 Quartale, CTX310 Safety-Signal, Cash unter $1 Mrd.",
+     "maxWeightPct": 12
+    },
+    "thesisCheck": {
+     "metric": "Casgevy-Umsatz/Quartal + CTX310-Daten + Cash",
+     "breakThreshold": "Casgevy < $30 Mio./Quartal zwei Quartale UND kein CTX310-Fortschritt",
+     "source": "CRISPR IR / 10-Q, Vertex-Bericht (Casgevy)",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-08-01",
+     "lastCheckedValue": "Casgevy $43 Mio. Q1, > 500 Patienten, CTX310 US IND-Clearance",
+     "lastCheckedDate": "2026-06-06"
+    },
+    "stopEvent": {
+     "condition": "Casgevy < $30 Mio./Quartal UND kein CTX310-Fortschritt",
+     "persistence": "zwei Quartale in Folge",
+     "source": "10-Q / Vertex-Quartalsbericht"
+    },
+    "catalysts": [
+     {
+      "date": "H2 2026",
+      "event": "CTX310 Kardio-Daten"
+     },
+     {
+      "date": "2026-11",
+      "event": "Q3-2026-Earnings – Datum prüfen"
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "−7,85 % – noch nicht in Nachkauf-Zone 1 (€41,58–39,27). Vor einem Nachkauf ist der These-Check Pflicht; das Q2-Ergebnis (Casgevy-Umsatz) ist nicht fixiert. Gewicht 15,2 % > maxWeight 12 %. Kurs-Stops (€39,27 / 15 %) werden entfernt – ihr Niveau lag genau in der Nachkauf-Zone (der Widerspruch, den v1.1 aufgelöst hat)."
+   },
+   {
+    "action": "note",
+    "ticker": "CRSP",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 42 Stück @ €46,20 (Tracker: 42 Stück @ €46,20). Trim-Leiter v1.2 ab Einstand: +30 % = €60,06 (8 Stk.), +60 % = €73,92 (8 Stk.), +100 % = €92,40 (8 Stk.)",
+    "sollbestand": {
+     "shares": 42,
+     "avgCostEur": 46.2,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "upsert",
+    "ticker": "SDGR",
+    "name": "Schrödinger Inc.",
+    "sector": 3,
+    "type": "Speculative",
+    "bucket": null,
+    "status": "IM_PLAN",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesis": {
+     "bucket": "Speculative",
+     "case": "Einzige börsennotierte Plattform für physikbasierte Molekülsimulation + KI. Pharma zahlt für Software, eigene Kandidaten erzielen Milliarden-Exits (Ajax $2,3 Mrd.). Bunsen-Launch und ACV-Wachstum sind 12-Monats-Treiber.",
+     "rightIf": "ACV ≥ 10 % Wachstum drei Quartale, Ajax-Cash-Zufluss, Bunsen erhöht Nutzerbasis, neuer Partnership-Deal ≥ $500 Mio.",
+     "wrongIf": "ACV unter 8 % zwei Quartale, Cash unter $250 Mio. ohne Deal, Bunsen verzögert sich über Q1 2027",
+     "maxWeightPct": 8
+    },
+    "thesisCheck": {
+     "metric": "ACV-Wachstum % YoY + Cash",
+     "breakThreshold": "ACV < 8 % zwei Quartale UND kein neuer Partnership-Deal",
+     "source": "Schrödinger IR / 10-Q",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-08-05",
+     "lastCheckedValue": "ACV +12 % Q1, Drug Discovery +124 %, Cash $406 Mio.",
+     "lastCheckedDate": "2026-06-06"
+    },
+    "stopEvent": {
+     "condition": "ACV-Wachstum < 8 % UND kein neuer Partnership-Deal",
+     "persistence": "zwei Quartale in Folge",
+     "source": "10-Q"
+    },
+    "dcaZones": [],
+    "catalysts": [
+     {
+      "date": "2026-11",
+      "event": "Q3-2026-Earnings – Datum prüfen"
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Speculative-Satellit, kein Core (POSITIONEN 31.07. schlägt den älteren Tracker-Eintrag „Bucket A“). Verluste bis ~2028 eingeplant, Positionsgröße wird nicht erhöht → Nachkauf-Zonen entfallen. +24,1 %: die erste Trim-Stufe (+30 % ≈ €14,00, 20 Stück) ist nah. 11,3 % Gewicht liegt über maxWeight 8 %."
+   },
+   {
+    "action": "note",
+    "ticker": "SDGR",
+    "text": "Bestandsabgleich POSITIONEN.md v1.0 (Broker 2026-07-31): Soll 100 Stück @ €10,77 (Tracker: 70 Stück @ €10,70). Trim-Leiter v1.2 ab Einstand: +30 % = €14,00 (20 Stk.), +60 % = €17,23 (20 Stk.), +100 % = €21,54 (20 Stk.)",
+    "sollbestand": {
+     "shares": 100,
+     "avgCostEur": 10.77,
+     "stand": "2026-07-31",
+     "quelle": "POSITIONEN.md v1.0"
+    }
+   },
+   {
+    "action": "note",
+    "ticker": "MRNA",
+    "text": "Tracker führt 8 Stück @ €41,00, im Depot vom 31.07. ist MRNA nicht enthalten. Bis zur Klärung gilt: nicht gehalten, kein Chat rechnet damit."
+   },
+   {
+    "action": "upsert",
+    "ticker": "ETN",
+    "name": "Eaton Corporation",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Früher als Bucket-A-Position geführt, laut Depot nie gekauft bzw. nicht gehalten; Tracker führt ETN bereits als Watchlist mit 0 Stück. Bleibt Bucket-A-Kandidat ohne These-Karte."
+   },
+   {
+    "action": "upsert",
+    "ticker": "TT",
+    "name": "Trane Technologies",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Wie ETN: Bucket-A-Kandidat, nicht gehalten. Ohne These-Karte kein Kauf."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2142_multi_PORTFOLIO-S1.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "AMAT",
+    "name": "Applied Materials",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Warten auf Rücksetzer. Gehört zur Bucket-B-Kaufliste für die erwartete AI-Korrektur (Meta-These, Stichtag 2027-06-30). Keine These-Karte → kein regelkonformer Kauf."
+   },
+   {
+    "action": "upsert",
+    "ticker": "KLAC",
+    "name": "KLA Corporation",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Warten auf Rücksetzer. Gehört zur Bucket-B-Kaufliste für die erwartete AI-Korrektur (Meta-These, Stichtag 2027-06-30). Keine These-Karte → kein regelkonformer Kauf."
+   },
+   {
+    "action": "upsert",
+    "ticker": "ASX",
+    "name": "ASE Technology Holding (ADR)",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Gewichtung wegen Taiwan-Risiko klein halten. Gehört zur Bucket-B-Kaufliste für die erwartete AI-Korrektur (Meta-These, Stichtag 2027-06-30). Keine These-Karte → kein regelkonformer Kauf."
+   },
+   {
+    "action": "upsert",
+    "ticker": "ONTO",
+    "name": "Onto Innovation",
+    "sector": 1,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Warten auf Rücksetzer. Gehört zur Bucket-B-Kaufliste für die erwartete AI-Korrektur (Meta-These, Stichtag 2027-06-30). Keine These-Karte → kein regelkonformer Kauf."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2143_multi_PORTFOLIO-S2.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "IONQ",
+    "name": "IonQ Inc.",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Einstieg erst nach ~50 % Kursrückgang vertretbar. Survivor-Kandidat im Dotcom-Raster, aber Bewertung extrem."
+   },
+   {
+    "action": "upsert",
+    "ticker": "QBTS",
+    "name": "D-Wave Quantum Inc.",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Nur im Extremszenario vertretbar – faktisch Speculative-Bucket (max. 1–2 %)."
+   },
+   {
+    "action": "upsert",
+    "ticker": "RGTI",
+    "name": "Rigetti Computing Inc.",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "MEIDEN. Kein aktiver Kauf bis fundamentale Normalisierung und strukturelle Differenzierung erkennbar."
+   },
+   {
+    "action": "upsert",
+    "ticker": "QUBT",
+    "name": "Quantum Computing Inc.",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "MEIDEN. Pets.com-Kandidat im Dotcom-Raster."
+   },
+   {
+    "action": "upsert",
+    "ticker": "GOOGL",
+    "name": "Alphabet Inc.",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Bucket B: Einstieg bei AI-Korrektur."
+   },
+   {
+    "action": "upsert",
+    "ticker": "NVDA",
+    "name": "NVIDIA Corporation",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Bucket B: Zonen lagen bei Festlegung 15–40 % unter Kurs."
+   },
+   {
+    "action": "upsert",
+    "ticker": "MSFT",
+    "name": "Microsoft Corporation",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": "B",
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Bucket B; erste Kaufzone lag im Juni nahe."
+   },
+   {
+    "action": "upsert",
+    "ticker": "IBM",
+    "name": "International Business Machines",
+    "sector": 2,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Näherte sich im Juni der Kaufzone; Quantum-Advantage-Demo H2 2026 als Katalysator."
+   },
+   {
+    "action": "note",
+    "ticker": "SKYT",
+    "text": "Kein eigenständiger Investment-Case. Nach Bestätigung des Merger-Closings: remove."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2144_multi_PORTFOLIO-S3.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "NTLA",
+    "name": "Intellia Therapeutics",
+    "sector": 3,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "watchlist": {
+     "erstcheckZone": 10.3,
+     "absoluterBoden": 6.9
+    },
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Watchlist ohne Kaufempfehlung. Erstcheck-Zone €10,30, absoluter Boden €6,90. Sektor-3-Klumpen (43,6 %) spricht gegen weitere Biotech-Käufe."
+   },
+   {
+    "action": "upsert",
+    "ticker": "BEAM",
+    "name": "Beam Therapeutics",
+    "sector": 3,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "watchlist": {
+     "erstcheckZone": 22.3,
+     "absoluterBoden": 12.0
+    },
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Watchlist ohne Kaufempfehlung. Erstcheck-Zone €22,30, absoluter Boden €12,00. Sektor-3-Klumpen beachten."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2145_multi_PORTFOLIO-S8.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "FTNT",
+    "name": "Fortinet Inc.",
+    "sector": 8,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "dcaZones": [
+     {
+      "label": "Erstposition (€107–118)",
+      "priceRef": null,
+      "priceEurInfo": 118
+     },
+     {
+      "label": "Nachkauf 1 (€90–103)",
+      "priceRef": null,
+      "priceEurInfo": 103
+     },
+     {
+      "label": "Nachkauf 2 (€75–86)",
+      "priceRef": null,
+      "priceEurInfo": 86
+     }
+    ],
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Watchlist mit vorbereiteten Zonen (Stand POSITIONEN 31.07.: Erstposition €107–118, NK1 €90–103, NK2 €75–86, Alert bei €115). Kein Einstieg nach der Verdoppelung; Erstposition nach Earnings-Rücksetzer."
+   },
+   {
+    "action": "upsert",
+    "ticker": "CRWD",
+    "name": "CrowdStrike Holdings",
+    "sector": 8,
+    "type": "Core",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Am ATH bei Festlegung – warten auf Rücksetzer in die Zonen. Keine Position. Steht nicht auf der Watchlist in POSITIONEN.md."
+   },
+   {
+    "action": "upsert",
+    "ticker": "PANW",
+    "name": "Palo Alto Networks",
+    "sector": 8,
+    "type": "Core",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Am ATH bei Festlegung; Erstposition nicht eröffnet. Keine Position. Steht nicht auf der Watchlist in POSITIONEN.md."
+   },
+   {
+    "action": "upsert",
+    "ticker": "S",
+    "name": "SentinelOne Inc.",
+    "sector": 8,
+    "type": "Speculative",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Speculative-Bucket, nicht eröffnet. Keine Position. Steht nicht auf der Watchlist in POSITIONEN.md."
+   },
+   {
+    "action": "upsert",
+    "ticker": "OKTA",
+    "name": "Okta Inc.",
+    "sector": 8,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NASDAQ",
+    "zoneCurrency": "USD",
+    "stopLossEur": null,
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Über Kaufzone bei Festlegung; Hauptrisiko PANW/CyberArk. Keine Position. Steht nicht auf der Watchlist in POSITIONEN.md."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2146_multi_PORTFOLIO-S10.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "TMO",
+    "name": "Thermo Fisher Scientific",
+    "sector": 10,
+    "type": "Core",
+    "bucket": "A",
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesis": {
+     "bucket": "A",
+     "case": "Tools-Cluster am stärksten abgestraft (−17,2 % YTD Q1/26); TMO Marktführer mit Recurring Revenue; profitiert von AI, ohne daran zu hängen.",
+     "rightIf": "Organisches Wachstum beschleunigt Richtung 5–7 %, Biopharma-R&D steigt",
+     "wrongIf": "Strukturell < 3 % Wachstum durch dauerhafte Pharma-R&D-Kürzungen",
+     "maxWeightPct": 5
+    },
+    "thesisCheck": {
+     "metric": "Organisches Wachstum % YoY",
+     "breakThreshold": "< 0 % YoY zwei Quartale + DHR-Bioprocessing bestätigt",
+     "source": "10-Q TMO + 10-Q DHR",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-07-25",
+     "lastCheckedValue": "",
+     "lastCheckedDate": ""
+    },
+    "stopEvent": {
+     "condition": "Organisches Wachstum < 0 % YoY",
+     "persistence": "zwei Quartale in Folge + zweite Primärquelle (DHR Bioprocessing)",
+     "source": "10-Q TMO + 10-Q DHR"
+    },
+    "dcaZones": [
+     {
+      "label": "Erstposition",
+      "priceRef": 450,
+      "priceEurInfo": 390
+     },
+     {
+      "label": "Nachkauf 1",
+      "priceRef": 405,
+      "priceEurInfo": 351
+     },
+     {
+      "label": "Nachkauf 2",
+      "priceRef": 350,
+      "priceEurInfo": 303
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Vollständige These-Karte, Zielallokation €2.500, Zonen in USD ($450/405/350, Alert $465). Noch nicht eröffnet – kauft nur in Zone und nach Pre-Buy-These-Check."
+   },
+   {
+    "action": "upsert",
+    "ticker": "MDT",
+    "name": "Medtronic plc",
+    "sector": 10,
+    "type": "Core",
+    "bucket": "A",
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesis": {
+     "bucket": "A",
+     "case": "Dekadentief-Bewertung trifft operative Wende (Q4 FY26 +6,6 % organisch, CAS +78 %); Diabetes-Spinoff hebt Konzernmarge.",
+     "rightIf": "FY27-Guidance (6,75–7,25 % organisch, EPS 5,90–6,00 USD) hält, Spinoff vollzogen",
+     "wrongIf": "Wachstum fällt zurück < 4 % (2 Quartale), CAS-Anteilsgewinne drehen, Spinoff platzt",
+     "maxWeightPct": 4
+    },
+    "thesisCheck": {
+     "metric": "Organisches Wachstum + Spinoff-Status",
+     "breakThreshold": "< 4 % zwei Quartale ODER Spinoff-Abbruch",
+     "source": "10-Q / 8-K",
+     "checkCadence": "quarterly",
+     "nextCheckDate": "2026-08-25",
+     "lastCheckedValue": "Q4 FY26: +6,6 % organisch; FY27-Guidance 6,75–7,25 %",
+     "lastCheckedDate": "2026-06-10"
+    },
+    "stopEvent": {
+     "condition": "Organisches Wachstum < 4 % ODER Spinoff-Abbruch",
+     "persistence": "zwei Quartale in Folge bzw. offizielle Mitteilung",
+     "source": "10-Q / 8-K"
+    },
+    "dcaZones": [
+     {
+      "label": "Erstposition",
+      "priceRef": 77,
+      "priceEurInfo": 67
+     },
+     {
+      "label": "Nachkauf 1",
+      "priceRef": 69,
+      "priceEurInfo": 60
+     },
+     {
+      "label": "Nachkauf 2",
+      "priceRef": 61,
+      "priceEurInfo": 53
+     }
+    ],
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Vollständige These-Karte, Zielallokation €1.500, Zonen $77/69/61. Noch nicht eröffnet."
+   },
+   {
+    "action": "upsert",
+    "ticker": "SHL",
+    "name": "Siemens Healthineers AG",
+    "sector": 10,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "XETRA",
+    "zoneCurrency": "EUR",
+    "thesis": {
+     "bucket": "Watchlist",
+     "case": "Weltmarktführer Bildgebung mit Service-Burggraben, 31 % unter Hoch; Diagnostics-Problem möglicherweise isoliert.",
+     "rightIf": "Q3 FY26 zeigt Umsatzstabilisierung und Guidance hält",
+     "wrongIf": "Umsatzschwäche greift auf Imaging über; zweite Prognosesenkung binnen 12 Monaten",
+     "maxWeightPct": 4
+    },
+    "thesisCard": true,
+    "source": "System",
+    "notes": "EINGEFROREN seit 10.06. bis zum Q3-FY26-Report (31.07.). Reaktivierung nur wenn vergleichbarer Umsatz ≥ Vorjahr ODER Imaging-Auftragseingang stabil, UND keine weitere Prognosesenkung. Der Report liegt vor, die Prüfung ist nicht protokolliert."
+   },
+   {
+    "action": "upsert",
+    "ticker": "DHR",
+    "name": "Danaher Corp.",
+    "sector": 10,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesis": {
+     "bucket": "Watchlist",
+     "case": "Serieller Compounder (DBS), Masimo-Deal (9,9 Mrd. USD), Bioprocessing-Erholung (erstes positives Equipment-Orderwachstum seit ~2 Jahren).",
+     "rightIf": "Kernwachstum beschleunigt Richtung 6 %+",
+     "wrongIf": "Masimo-Integration scheitert, Diagnostics-Erosion hält an",
+     "maxWeightPct": 4
+    },
+    "dcaZones": [
+     {
+      "label": "Erstcheck-Zone",
+      "priceRef": 165,
+      "priceEurInfo": 143
+     },
+     {
+      "label": "Absoluter Boden",
+      "priceRef": 140,
+      "priceEurInfo": 121
+     }
+    ],
+    "watchlist": {
+     "erstcheckZone": 165,
+     "absoluterBoden": 140
+    },
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Ersatzkandidat, falls die TMO-These bricht (80 % These-Überlappung)."
+   },
+   {
+    "action": "upsert",
+    "ticker": "BSX",
+    "name": "Boston Scientific",
+    "sector": 10,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesis": {
+     "bucket": "Watchlist",
+     "case": "Wachstumsführer zum Krisenpreis – falls Recall-Schaden temporär.",
+     "rightIf": "CRM-Anteile stabil, EP/Watchman-Wachstum kehrt zurück, keine weiteren Revisionen",
+     "wrongIf": "Messbarer Anteilsverlust an ABT/MDT über 2+ Quartale, Klagen eskalieren materiell",
+     "maxWeightPct": 3
+    },
+    "dcaZones": [
+     {
+      "label": "Erstcheck-Zone",
+      "priceRef": 46,
+      "priceEurInfo": 40
+     },
+     {
+      "label": "Absoluter Boden",
+      "priceRef": 37,
+      "priceEurInfo": 32
+     }
+    ],
+    "watchlist": {
+     "erstcheckZone": 46,
+     "absoluterBoden": 37
+    },
+    "thesisCard": true,
+    "source": "System",
+    "notes": "PRÜFFALL: Hochstufung zu Speculative erst nach zwei sauberen Quartalen (CRM-Anteile stabil)."
+   },
+   {
+    "action": "upsert",
+    "ticker": "FME",
+    "name": "Fresenius Medical Care",
+    "sector": 10,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "XETRA",
+    "zoneCurrency": "EUR",
+    "thesis": {
+     "bucket": "Watchlist",
+     "case": "Extrem-Discount (−59 % von Hochs) auf reale Kostenwende (FME Reignite: 2025 +27 % Ergebnis, FCF Q1 +94 %); GLP-1-Strukturangst möglicherweise übertrieben.",
+     "rightIf": "US-Treatment-Growth dreht zurück ≥ 0 % (Q2/Q3 2026), 5008X-Rollout zahlt ab H2 ein, Guidance hält",
+     "wrongIf": "US-Same-Market-Treatment-Growth negativ 2 Quartale in Folge ohne belegbaren Klinik-Exit-Effekt",
+     "maxWeightPct": 3
+    },
+    "watchlist": {
+     "erstcheckZone": 34,
+     "absoluterBoden": 28
+    },
+    "thesisCard": true,
+    "source": "System",
+    "notes": "Break-Bedingung stand nach Q1/26 bei 1 von 2 (US-Treatment-Growth −0,4 %). Upgrade zu Speculative (€500–750 aus Reserve) nur, wenn Q2 (04.08.) Treatment-Growth ≥ 0 % zeigt oder der Klinik-Exit-Effekt glaubhaft quantifiziert wird. Ergebnis nicht protokolliert."
+   }
+  ]
+ },
+ {
+  "file": "2026-10-30_2147_multi_PORTFOLIO-S11.md",
+  "items": [
+   {
+    "action": "upsert",
+    "ticker": "XYL",
+    "name": "Xylem Inc.",
+    "sector": 11,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Shortlist Sektor 11. Budget noch nicht festgelegt, keine Analyse und keine Zonen fixiert."
+   },
+   {
+    "action": "upsert",
+    "ticker": "VIE",
+    "name": "Veolia Environnement",
+    "sector": 11,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "EURONEXT PARIS",
+    "zoneCurrency": "EUR",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Shortlist Sektor 11. Budget noch nicht festgelegt, keine Analyse und keine Zonen fixiert."
+   },
+   {
+    "action": "upsert",
+    "ticker": "MWA",
+    "name": "Mueller Water Products",
+    "sector": 11,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Shortlist Sektor 11. Budget noch nicht festgelegt, keine Analyse und keine Zonen fixiert."
+   },
+   {
+    "action": "upsert",
+    "ticker": "WTS",
+    "name": "Watts Water Technologies",
+    "sector": 11,
+    "type": "Watchlist",
+    "bucket": null,
+    "status": "WATCHLIST",
+    "referenceListing": "NYSE",
+    "zoneCurrency": "USD",
+    "thesisCard": false,
+    "source": "System",
+    "notes": "Shortlist Sektor 11. Budget noch nicht festgelegt, keine Analyse und keine Zonen fixiert."
+   }
+  ]
+ }
+]
