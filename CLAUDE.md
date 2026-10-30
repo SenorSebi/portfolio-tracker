@@ -42,9 +42,10 @@ Finance-Chats legen Übergabe-Dateien im Google-Drive-Ordner ab:
 - `archiv/` — eingebaute Übergaben (nie löschen)
 - `UEBERGABE-PROTOKOLL.md` — Format und Regeln (Teil B gilt für Code)
 
-Bei „Übergaben einbauen" oder `/uebergaben`: zuerst `UEBERGABE-PROTOKOLL.md` lesen, dann
+Bei **„update"**, „Übergaben einbauen" oder `/uebergaben`: zuerst `UEBERGABE-PROTOKOLL.md` lesen, dann
 nach Teil B vorgehen. Immer erst Vorschau, dann nach OK anwenden. Nie raten bei Konflikten.
 Nicht von selbst den Eingang abarbeiten — nur auf Kommando.
+Nach dem Anwenden committen und auf `main` pushen (= Deploy), damit es online sichtbar ist.
 
 In Cloud-Sessions (kein Mac-Pfad vorhanden) denselben Ordner über den Google-Drive-Connector lesen:
 Stammordner `1qi5eIKOKdA6GFRBbyXf527eZkkSUlYFZ`, `eingang/` `1GGmNCPlRA6VXKigFjyl41KHIsRIb8pwf`,

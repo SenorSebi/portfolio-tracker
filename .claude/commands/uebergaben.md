@@ -1,5 +1,5 @@
 ---
-description: Übergaben aus den Finance-Chats in den Portfolio-Tracker einbauen
+description: Übergaben aus den Finance-Chats in den Portfolio-Tracker einbauen (auch bei „update")
 ---
 Lies `~/Library/CloudStorage/GoogleDrive-sebijilch@gmail.com/Meine Ablage/Finance Claude/UEBERGABE-PROTOKOLL.md`
 und arbeite dann den Ordner `eingang/` nach Teil B ab.
